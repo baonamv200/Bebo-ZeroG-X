@@ -55,7 +55,7 @@ def render_html(html_str: str):
     st.markdown(cleaned, unsafe_allow_html=True)
 
 if "lang" not in st.session_state:
-    st.session_state.lang = "vi"
+    st.session_state.lang = "en"
 
 lang = st.session_state.lang
 t = get_i18n(lang)
@@ -391,9 +391,86 @@ render_html("""
     [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4)) { flex-wrap: wrap !important; gap: 12px !important; }
     [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4)) > [data-testid="column"] { flex: 1 1 calc(50% - 12px) !important; min-width: calc(50% - 12px) !important; }
     }
-    div[data-testid="stRadio"] > div[role="radiogroup"] { background: rgba(11, 29, 58, 0.75) !important; border: 1px solid rgba(0, 242, 255, 0.35) !important; border-radius: 9999px !important; padding: 3px 8px !important; display: inline-flex !important; gap: 10px !important; box-shadow: 0 0 15px rgba(0, 242, 255, 0.12) !important; }
-    div[data-testid="stRadio"] label { padding: 3px 8px !important; border-radius: 9999px !important; cursor: pointer !important; font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.82rem !important; font-weight: 600 !important; color: #E2E8F0 !important; transition: all 0.2s ease !important; }
-    div[data-testid="stRadio"] label:hover { color: #00F2FF !important; background: rgba(0, 242, 255, 0.1) !important; }
+    /* Main content horizontal radio switcher */
+    div:not([data-testid="stSidebar"]) div[data-testid="stRadio"] > div[role="radiogroup"] {
+        background: rgba(11, 29, 58, 0.75) !important;
+        border: 1px solid rgba(0, 242, 255, 0.35) !important;
+        border-radius: 9999px !important;
+        padding: 3px 8px !important;
+        display: inline-flex !important;
+        gap: 8px !important;
+        box-shadow: 0 0 15px rgba(0, 242, 255, 0.12) !important;
+    }
+    div:not([data-testid="stSidebar"]) div[data-testid="stRadio"] label[data-testid="stRadioOption"],
+    div:not([data-testid="stSidebar"]) div[data-testid="stRadio"] label {
+        padding: 4px 10px !important;
+        border-radius: 9999px !important;
+        cursor: pointer !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+        color: #E2E8F0 !important;
+        transition: all 0.2s ease !important;
+    }
+    div:not([data-testid="stSidebar"]) div[data-testid="stRadio"] label:hover {
+        color: #00F2FF !important;
+        background: rgba(0, 242, 255, 0.1) !important;
+    }
+    /* Sidebar AI Co-Pilot radio selector - Aerospace Card HUD */
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] > div[role="radiogroup"] {
+        display: flex !important;
+        flex-direction: column !important;
+        background: transparent !important;
+        border: none !important;
+        border-radius: 0px !important;
+        padding: 0px !important;
+        gap: 8px !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        height: auto !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label[data-testid="stRadioOption"] {
+        display: flex !important;
+        align-items: center !important;
+        background: rgba(13, 27, 54, 0.72) !important;
+        border: 1px solid rgba(56, 189, 248, 0.22) !important;
+        border-radius: 12px !important;
+        padding: 10px 14px !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+        transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label[data-testid="stRadioOption"]:hover {
+        background: rgba(16, 40, 80, 0.88) !important;
+        border-color: rgba(0, 242, 255, 0.55) !important;
+        box-shadow: 0 0 14px rgba(0, 242, 255, 0.2) !important;
+        transform: translateY(-1px) !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label[data-selected="true"],
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label:has(input:checked) {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.32) 0%, rgba(2, 132, 199, 0.16) 100%) !important;
+        border: 1.5px solid #00F2FF !important;
+        box-shadow: 0 0 16px rgba(0, 242, 255, 0.3), inset 0 0 12px rgba(0, 242, 255, 0.08) !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label p,
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label div {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-size: 0.82rem !important;
+        font-weight: 700 !important;
+        color: #CBD5E1 !important;
+        margin: 0 !important;
+        line-height: 1.35 !important;
+        white-space: nowrap !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label[data-selected="true"] p,
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label:has(input:checked) p {
+        color: #FFFFFF !important;
+        font-weight: 800 !important;
+        text-shadow: 0 0 8px rgba(0, 242, 255, 0.4) !important;
+    }
     :root { --holo-cyan: #00F2FF; --holo-blue: #38BDF8; --holo-purple: #A855F7; --holo-pink: #EC4899; --holo-bg-deep: #030712; --holo-glass: rgba(10, 22, 48, 0.62); --holo-glass-hover: rgba(16, 34, 72, 0.78); }
     .stApp { background-color: var(--holo-bg-deep) !important; background-image: radial-gradient(circle at 82% 14%, rgba(0, 242, 255, 0.14) 0%, transparent 42%), radial-gradient(circle at 18% 78%, rgba(168, 85, 247, 0.14) 0%, transparent 48%), radial-gradient(circle at 50% 42%, rgba(11, 61, 145, 0.20) 0%, transparent 60%), linear-gradient(to right, rgba(56, 189, 248, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(56, 189, 248, 0.03) 1px, transparent 1px), linear-gradient(180deg, #04091A 0%, #02050E 100%) !important; background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px, 100% 100% !important; animation: none !important; }
     .nasa-nav-bar, .nasa-hero, .nasa-card, div[data-testid="stPlotlyChart"], .tunnel-container, .ranking-row, .rag-result-card { animation: none !important; transform: none !important; }
@@ -830,7 +907,7 @@ class MicrogravityCombustionPhysics:
             return sfrs, "Safe", "#10B981"
 
     @staticmethod
-    def detect_cool_flames(material_row, gravity_g, airflow_cm_s, oxygen_pct, pressure_kpa, lang="vi", eff_moc=None):
+    def detect_cool_flames(material_row, gravity_g, airflow_cm_s, oxygen_pct, pressure_kpa, lang="en", eff_moc=None):
         if not material_row.get("cool_flame_susceptible", False):
             msg = "Không nhạy cảm với chuyển dịch ngọn lửa lạnh." if lang == "vi" else "Not susceptible to cool flame transition."
             return False, msg
@@ -1395,7 +1472,7 @@ def generate_3d_flame_figure(
     return fig_3d
 
 @st.cache_data(ttl=900, show_spinner=False)
-def query_online_llm_rag(user_query: str, evidence_snippets: str, llm_provider: str, api_key: str, lang: str = "vi") -> str:
+def query_online_llm_rag(user_query: str, evidence_snippets: str, llm_provider: str, api_key: str, lang: str = "en") -> str:
     rag_prompt = f"""You are NASA's Chief Spacecraft Fire Safety Officer.
 Answer the following crew query strictly based on the retrieved NASA PSI flight documentation provided below:
 
@@ -1838,7 +1915,7 @@ class NASAPsiVectorDB:
             return list(sims)
         return [0.0] * len(self.docs)
 
-    def synthesize_answer(self, query_text: str, ranked_results, lang: str = "vi"):
+    def synthesize_answer(self, query_text: str, ranked_results, lang: str = "en"):
         if not ranked_results:
             return "Không tìm thấy tài liệu kỹ thuật NASA PSI nào phù hợp." if lang == "vi" else "No matching NASA PSI documents found for this query."
             
@@ -1946,7 +2023,7 @@ class EmergencySuppressionMatrix:
 
 class AICoPilotEngine:
     @staticmethod
-    def generate_expert_insights(material_row, cabin_state, risk_data, lang="vi"):
+    def generate_expert_insights(material_row, cabin_state, risk_data, lang="en"):
         chem = material_row["chemical_formula"]
         
         sfrs = float(risk_data.get("sfrs", 0.0))
@@ -2070,7 +2147,7 @@ class AICoPilotEngine:
 
     @staticmethod
     @st.cache_data(ttl=900, show_spinner=False)
-    def call_online_ai(api_key, provider, mat_name, psi_id, mission, chem, moc_ug, moc_1g, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, sfrs, tier, eff_moc, spread_rate, cool_flame_bool, lang="vi"):
+    def call_online_ai(api_key, provider, mat_name, psi_id, mission, chem, moc_ug, moc_1g, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, sfrs, tier, eff_moc, spread_rate, cool_flame_bool, lang="en"):
         prompt = f"""
 You are NASA's Chief Spacecraft Fire Safety and Microgravity Combustion Expert.
 Analyze the following spacecraft fire scenario based on NASA PSI (Physical Sciences Informatics) research:
@@ -2205,14 +2282,14 @@ with st.sidebar:
     
     col_lang1, col_lang2 = st.columns(2)
     with col_lang1:
-        if st.button("🇻🇳 Tiếng Việt", width="stretch", type="primary" if lang == "vi" else "secondary", key="btn_lang_vi"):
-            st.session_state.lang = "vi"
-            st.session_state["rag_input"] = TRANSLATIONS["vi"]["q1_text"]
-            st.rerun()
-    with col_lang2:
         if st.button("🇺🇸 English", width="stretch", type="primary" if lang == "en" else "secondary", key="btn_lang_en"):
             st.session_state.lang = "en"
             st.session_state["rag_input"] = TRANSLATIONS["en"]["q1_text"]
+            st.rerun()
+    with col_lang2:
+        if st.button("🇻🇳 Tiếng Việt", width="stretch", type="primary" if lang == "vi" else "secondary", key="btn_lang_vi"):
+            st.session_state.lang = "vi"
+            st.session_state["rag_input"] = TRANSLATIONS["vi"]["q1_text"]
             st.rerun()
 
     render_html(f"""
