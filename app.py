@@ -2613,7 +2613,8 @@ with st.sidebar:
                 System Metadata & Attribution
             </div>
             <div style="font-size: 0.78rem; color: #CBD5E1; line-height: 1.55;">
-                <b style="color: #64748B;">Architect:</b> Vũ Bảo Nam (Vu Bao Nam)<br>
+                <b style="color: #64748B;">Team Lead & Architect:</b> Vũ Bảo Nam<br>
+                <b style="color: #64748B;">Members:</b> Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh<br>
                 <b style="color: #64748B;">Lab / Team:</b> Bebo AstroX • VBN Lab<br>
                 <b style="color: #64748B;">Institution:</b> THPT FPT (FPT High School)
             </div>
@@ -3659,7 +3660,7 @@ with tab_sim:
             margin=dict(t=25, b=55, l=55, r=40)
         )
         fig_boundary.add_annotation(
-            text="© 2026 Bebo AstroX • Vu Bao Nam | NASA Space Apps",
+            text="© 2026 Bebo AstroX Team (Vu Bao Nam, Do Duy Nam, Luong Duc Tung, Trinh Duc Anh) | NASA Space Apps",
             xref="paper", yref="paper",
             x=1.0, y=-0.22,
             showarrow=False,
@@ -5253,7 +5254,7 @@ with tab_matrix:
 
     report_payload = {
         "report_id": f"NASA-CRISIS-{int(time.time())}",
-        "author_attribution": "Vu Bao Nam | Bebo AstroX • VBN Lab (FPT High School)",
+        "author_attribution": "Vu Bao Nam (Lead), Do Duy Nam, Luong Duc Tung, Trinh Duc Anh | Bebo AstroX • VBN Lab (FPT High School)",
         "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "language": lang,
         "cabin_environment": cabin_state,
@@ -5275,7 +5276,7 @@ with tab_matrix:
     if lang == "vi":
         md_brief = f"""# Bản Tóm Tắt Kỹ Thuật Ma Trận Ứng Phó Khẩn Cấp NASA
 **Mã Báo cáo:** {report_payload['report_id']} | **Thời gian:** {report_payload['timestamp_utc']}
-**Tác giả & Kiến trúc sư:** Vu Bao Nam | Bebo AstroX • VBN Lab (FPT High School)
+**Đội ngũ Tác giả:** Vũ Bảo Nam (Lead), Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh | Bebo AstroX • VBN Lab (THPT FPT)
 **Môi trường Khoang:** g={cabin_state['gravity_g']}g, O2={cabin_state['oxygen_pct']}%, P={cabin_state['pressure_kpa']} kPa, V={cabin_state['airflow_cm_s']} cm/s
 
 ## Danh mục Vật liệu Nguy cơ Cao ({len(red_risk_materials)}):
@@ -5290,7 +5291,7 @@ with tab_matrix:
     else:
         md_brief = f"""# NASA Spacecraft Fire Emergency Matrix Briefing
 **Report ID:** {report_payload['report_id']} | **Date:** {report_payload['timestamp_utc']}
-**Author & System Architect:** Vu Bao Nam | Bebo AstroX • VBN Lab (FPT High School)
+**Authors & Development Team:** Vu Bao Nam (Lead), Do Duy Nam, Luong Duc Tung, Trinh Duc Anh | Bebo AstroX • VBN Lab (FPT High School)
 **Environment:** g={cabin_state['gravity_g']}g, O2={cabin_state['oxygen_pct']}%, P={cabin_state['pressure_kpa']} kPa, V={cabin_state['airflow_cm_s']} cm/s
 
 ## Critical Threat Materials ({len(red_risk_materials)}):
@@ -5358,7 +5359,7 @@ with tab_matrix:
             </div>
             {items_preview_html}
             <div style="font-size: 0.72rem; color: #38BDF8; font-family: 'JetBrains Mono', monospace; margin-top: 12px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.18);">
-                <b>AUTHOR & SYSTEM ARCHITECT:</b> Vũ Bảo Nam (Vu Bao Nam) | Bebo AstroX • VBN Lab (THPT FPT)
+                <b>AUTHORS & TEAM:</b> Vũ Bảo Nam (Lead), Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh | Bebo AstroX • VBN Lab (THPT FPT)
             </div>
         </div>
         """
@@ -5494,8 +5495,9 @@ render_html(f"""
     </div>
     
     <div style="margin: 14px 0 16px 0; background: rgba(10, 18, 34, 0.55); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 10px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-        <div style="font-size: 0.80rem; color: #CBD5E1;">
-            <b style="color: #94A3B8;">System Architect:</b> Vũ Bảo Nam &nbsp;•&nbsp; 
+        <div style="font-size: 0.80rem; color: #CBD5E1; line-height: 1.6;">
+            <b style="color: #94A3B8;">Lead Architect:</b> Vũ Bảo Nam &nbsp;•&nbsp; 
+            <b style="color: #94A3B8;">Team Members:</b> Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh<br>
             <b style="color: #94A3B8;">Lab:</b> Bebo AstroX • VBN Lab &nbsp;•&nbsp; 
             <b style="color: #94A3B8;">Institution:</b> THPT FPT (FPT High School)
         </div>

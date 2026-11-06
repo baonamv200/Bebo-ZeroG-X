@@ -1,7 +1,7 @@
 # Flames in Freefall: SI-Powered Spacecraft Fire Safety Dashboard
 ### NASA Space Apps Challenge 2026 - Aerospace Microgravity Combustion Intelligence
-**Author & System Architect:** Vũ Bảo Nam (Vu Bao Nam) | **Research Lab:** Bebo AstroX • VBN Lab (THPT FPT)  
-**Core Combustion Engine:** `Bebo Ignis-0G` Microgravity Combustion Physics & RAG Engine
+**Team Lead & Architect:** Vũ Bảo Nam (Vu Bao Nam) | **Team Members:** Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh  
+**Research Lab:** Bebo AstroX • VBN Lab (THPT FPT) | **Core Combustion Engine:** `Bebo Ignis-0G` Microgravity Combustion Physics & RAG Engine
 
 ---
 
@@ -9,9 +9,14 @@ An expert-grade interactive Mission Control safety platform built with **Streaml
 
 ---
 
-## 👨‍🚀 Author & System Architect Attribution
+## 👨‍🚀 Team & Author Attribution
 
-- **System Architect & Lead Developer:** Vũ Bảo Nam (Vu Bao Nam)
+- **Project Lead & System Architect:** Vũ Bảo Nam (Vu Bao Nam)
+- **Team Members:**
+  - **Vũ Bảo Nam** — Team Lead, System Architecture & Full-stack Engineering
+  - **Đỗ Duy Nam** — Microgravity Combustion Data & Physics Analytics
+  - **Lương Đức Tùng** — Non-linear Flame Spread Kinetics & CFD Modeling
+  - **Trịnh Đức Anh** — Aerospace UI/UX Design & Mission Documentation
 - **Research Lab / Team:** Bebo AstroX • VBN Lab
 - **Institution:** Trường THPT FPT (FPT High School)
 - **Project Topic:** *Flames in Freefall: SI-Powered Fire Safety Insights from Microgravity Combustion Data*

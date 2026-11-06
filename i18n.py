@@ -3,9 +3,9 @@ TRANSLATIONS = {
     "vi": {
         "page_title": "Flames in Freefall | An toàn Cháy Tàu Vũ trụ NASA",
         "usa_banner_1": "BÀI DỰ THI CHÍNH THỨC NASA SPACE APPS CHALLENGE 2026",
-        "usa_banner_2": "Kiến trúc sư Hệ thống & Phát triển: Vũ Bảo Nam (Bebo AstroX Lab - THPT FPT)",
+        "usa_banner_2": "Đội ngũ Phát triển: Vũ Bảo Nam (Lead), Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh (Bebo AstroX Lab - THPT FPT)",
         "nav_agency_title": "BEBO ASTROX • VBN LAB",
-        "nav_agency_sub": "TRÍ TUỆ NHÂN TẠO AN TOÀN CHÁY VŨ TRỤ • VŨ BẢO NAM",
+        "nav_agency_sub": "TRÍ TUỆ NHÂN TẠO AN TOÀN CHÁY VŨ TRỤ • BEBO ASTROX TEAM",
         "disk_active": "KHO DỮ LIỆU ĐĨA HOẠT ĐỘNG",
         "cache_active": "BỘ NHỚ ĐỆM NASA PSI CHÍNH THỨC HOẠT ĐỘNG",
         "hero_pill": "NASA SPACE APPS CHALLENGE 2026 • AN TOÀN HÀNG KHÔNG VŨ TRỤ TIÊN TIẾN",
@@ -220,9 +220,9 @@ TRANSLATIONS = {
     "en": {
         "page_title": "Flames in Freefall | NASA Fire Safety",
         "usa_banner_1": "OFFICIAL ENTRY FOR NASA SPACE APPS CHALLENGE 2026",
-        "usa_banner_2": "System Architect & Lead Developer: Vu Bao Nam (Bebo AstroX Lab - FPT High School)",
+        "usa_banner_2": "Development Team: Vu Bao Nam (Lead), Do Duy Nam, Luong Duc Tung, Trinh Duc Anh (Bebo AstroX Lab - FPT High School)",
         "nav_agency_title": "BEBO ASTROX • VBN LAB",
-        "nav_agency_sub": "AEROSPACE FIRE SAFETY AI • BY VU BAO NAM",
+        "nav_agency_sub": "AEROSPACE FIRE SAFETY AI • BEBO ASTROX TEAM",
         "disk_active": "DISK REPOSITORY ACTIVE",
         "cache_active": "OFFICIAL NASA PSI CACHE ACTIVE",
         "hero_pill": "NASA SPACE APPS CHALLENGE 2026 • ADVANCED AEROSPACE SAFETY",
