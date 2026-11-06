@@ -15,6 +15,24 @@ import requests
 import streamlit as st
 from plotly.subplots import make_subplots
 
+# Auto-load .env configuration if present
+_env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_file):
+    try:
+        with open(_env_file, "r", encoding="utf-8") as _ef:
+            for _raw_line in _ef:
+                _line = _raw_line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    _k = _k.strip()
+                    _v = _v.strip().strip('"').strip("'")
+                    if _k:
+                        os.environ.setdefault(_k, _v)
+                        if not os.environ.get(_k):
+                            os.environ[_k] = _v
+    except Exception:
+        pass
+
 from functools import lru_cache
 import unicodedata
 
@@ -93,7 +111,7 @@ render_html("""
     @media (min-width: 769px) {
     section[data-testid="stSidebar"][data-collapsed="true"],
         [data-testid="stSidebar"][data-collapsed="true"] { min-width: 0px !important; max-width: 0px !important; width: 0px !important; transform: translateX(-100%) !important; visibility: hidden !important; pointer-events: none !important; display: none !important; }
-    section[data-testid="stSidebar"]:not([data-collapsed="true"]) { min-width: 320px !important; max-width: 380px !important; background: linear-gradient(180deg, rgba(14, 34, 68, 0.88) 0%, rgba(10, 26, 54, 0.94) 100%) !important; backdrop-filter: blur(24px) saturate(120%) !important; -webkit-backdrop-filter: blur(24px) saturate(120%) !important; border-right: 1px solid rgba(56, 189, 248, 0.32) !important; box-shadow: 6px 0 30px rgba(2, 12, 30, 0.35) !important; visibility: visible !important; display: block !important; }
+    section[data-testid="stSidebar"]:not([data-collapsed="true"]) { min-width: 335px !important; max-width: 385px !important; background: linear-gradient(180deg, rgba(14, 34, 68, 0.88) 0%, rgba(10, 26, 54, 0.94) 100%) !important; backdrop-filter: blur(24px) saturate(120%) !important; -webkit-backdrop-filter: blur(24px) saturate(120%) !important; border-right: 1px solid rgba(56, 189, 248, 0.32) !important; box-shadow: 6px 0 30px rgba(2, 12, 30, 0.35) !important; visibility: visible !important; display: block !important; }
     }
     .usa-banner { background: rgba(14, 36, 74, 0.55); border: 1px solid rgba(186, 230, 253, 0.22); border-radius: 10px; padding: 6px 20px; font-size: 0.72rem; color: #E2E8F0; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(14px); }
     .nasa-nav-bar { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, rgba(22, 52, 104, 0.58) 0%, rgba(14, 36, 74, 0.45) 100%); border: 1px solid rgba(56, 189, 248, 0.38); border-top: 1px solid rgba(255, 255, 255, 0.45); border-radius: 18px; padding: 12px 24px; margin: 10px 0 20px 0; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40); backdrop-filter: blur(20px) saturate(120%); -webkit-backdrop-filter: blur(20px) saturate(120%); gap: 16px; }
@@ -174,9 +192,9 @@ render_html("""
     [data-testid="stTab"][aria-selected="true"] { border-radius: 12px !important; background: linear-gradient(135deg, rgba(14, 165, 233, 0.3) 0%, rgba(2, 132, 199, 0.18) 100%) !important; color: #FFFFFF !important; font-weight: 700 !important; border: 1.5px solid #00F2FF !important; box-shadow: 0 0 18px rgba(0, 242, 255, 0.4) !important; }
     .bento-telemetry-card { background: rgba(13, 25, 48, 0.72) !important; border: 1px solid rgba(56, 189, 248, 0.25) !important; border-top: 2.5px solid #00F2FF !important; border-radius: 14px !important; padding: 14px 16px !important; backdrop-filter: blur(16px) !important; position: relative !important; overflow: hidden !important; box-shadow: 0 8px 24px rgba(2, 6, 23, 0.45) !important; transition: all 0.25s ease !important; }
     .bento-telemetry-card:hover { border-color: #00F2FF !important; box-shadow: 0 10px 28px rgba(0, 242, 255, 0.25) !important; }
-    .bento-card-title { font-size: 0.71rem !important; font-weight: 800 !important; letter-spacing: 0.05em !important; color: #94A3B8 !important; text-transform: uppercase !important; font-family: 'JetBrains Mono', monospace !important; margin-bottom: 6px !important; display: flex !important; justify-content: space-between !important; align-items: center !important; }
-    .bento-card-val { font-size: 1.55rem !important; font-weight: 900 !important; font-family: 'JetBrains Mono', monospace !important; color: #FFFFFF !important; line-height: 1.2 !important; }
-    .bento-card-sub { font-size: 0.74rem !important; color: #38BDF8 !important; margin-top: 5px !important; }
+    .bento-card-title { font-size: 0.71rem !important; font-weight: 800 !important; letter-spacing: 0.05em !important; color: #94A3B8 !important; text-transform: uppercase !important; font-family: 'Plus Jakarta Sans', sans-serif !important; margin-bottom: 6px !important; display: flex !important; justify-content: space-between !important; align-items: center !important; }
+    .bento-card-val { font-size: 1.55rem !important; font-weight: 800 !important; font-family: 'Plus Jakarta Sans', sans-serif !important; color: #FFFFFF !important; line-height: 1.2 !important; }
+    .bento-card-sub { font-size: 0.74rem !important; color: #38BDF8 !important; margin-top: 5px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
     .bento-env-card { background: rgba(11, 23, 44, 0.88) !important; border-radius: 18px !important; padding: 22px 20px !important; backdrop-filter: blur(22px) !important; border: 1px solid rgba(148, 163, 184, 0.22) !important; box-shadow: 0 12px 32px rgba(2, 6, 23, 0.55), inset 0 0 16px rgba(0, 242, 255, 0.04) !important; height: 100% !important; transition: all 0.25s ease !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; }
     .bento-env-card.earth-env { border-top: 4px solid #F59E0B !important; border-left: 1px solid rgba(245, 158, 11, 0.4) !important; }
     .bento-env-card.iss-env { border-top: 4px solid #00F2FF !important; border-left: 1px solid rgba(0, 242, 255, 0.4) !important; }
@@ -184,11 +202,11 @@ render_html("""
     .bento-env-card:hover { transform: translateY(-2px) !important; box-shadow: 0 16px 40px rgba(2, 6, 23, 0.7), 0 0 22px rgba(0, 242, 255, 0.2) !important; border-color: rgba(0, 242, 255, 0.45) !important; }
     .bento-env-header { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 14px !important; border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important; padding-bottom: 12px !important; gap: 8px !important; }
     .bento-env-title { font-family: 'Plus Jakarta Sans', sans-serif !important; font-weight: 800 !important; font-size: 1.15rem !important; color: #FFFFFF !important; line-height: 1.3 !important; letter-spacing: -0.01em !important; }
-    .bento-env-badge { font-family: 'JetBrains Mono', monospace !important; font-size: 0.76rem !important; font-weight: 800 !important; padding: 4px 10px !important; border-radius: 99px !important; white-space: nowrap !important; letter-spacing: 0.04em !important; }
+    .bento-env-badge { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.76rem !important; font-weight: 800 !important; padding: 4px 10px !important; border-radius: 99px !important; white-space: nowrap !important; letter-spacing: 0.04em !important; }
     .bento-env-item { background: rgba(13, 25, 48, 0.58) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; border-radius: 10px !important; padding: 10px 13px !important; margin-bottom: 10px !important; line-height: 1.62 !important; font-size: 0.90rem !important; color: #E2E8F0 !important; }
     .bento-env-item:last-child { margin-bottom: 0 !important; }
     .bento-env-item.hazard-item { background: rgba(239, 68, 68, 0.10) !important; border: 1px solid rgba(239, 68, 68, 0.32) !important; border-left: 3.5px solid #EF4444 !important; }
-    .bento-env-item-label { display: flex !important; align-items: center !important; gap: 6px !important; font-weight: 800 !important; font-size: 0.84rem !important; margin-bottom: 5px !important; text-transform: uppercase !important; letter-spacing: 0.04em !important; font-family: 'JetBrains Mono', monospace !important; }
+    .bento-env-item-label { display: flex !important; align-items: center !important; gap: 6px !important; font-weight: 800 !important; font-size: 0.84rem !important; margin-bottom: 5px !important; text-transform: uppercase !important; letter-spacing: 0.04em !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
     .rag-chip-card { background: rgba(13, 25, 48, 0.72) !important; border: 1px solid rgba(56, 189, 248, 0.22) !important; border-radius: 14px !important; padding: 12px 14px !important; backdrop-filter: blur(14px) !important; transition: all 0.25s ease !important; height: 100% !important; margin-bottom: 8px !important; }
     .rag-chip-card:hover { border-color: #00F2FF !important; background: rgba(14, 165, 233, 0.18) !important; box-shadow: 0 0 16px rgba(0, 242, 255, 0.3) !important; }
     .nasa-directive-container { background: linear-gradient(135deg, rgba(11, 28, 62, 0.88) 0%, rgba(6, 15, 36, 0.94) 100%) !important; border: 1.5px solid rgba(0, 242, 255, 0.4) !important; border-radius: 16px !important; padding: 18px 20px !important; box-shadow: 0 14px 36px rgba(2, 6, 23, 0.6), inset 0 0 20px rgba(0, 242, 255, 0.08) !important; backdrop-filter: blur(20px) !important; margin-bottom: 16px !important; }
@@ -287,7 +305,12 @@ render_html("""
     .stButton > button:not([kind="primary"]):hover { background: rgba(32, 72, 138, 0.72) !important; color: #00F2FF !important; border-color: #00F2FF !important; box-shadow: 0 4px 14px rgba(0, 242, 255, 0.22) !important; transform: none !important; }
     .stTextInput > div > div > input,
     [data-testid="stSelectbox"] div[data-baseweb="select"] { border-radius: 12px !important; background: rgba(20, 48, 96, 0.55) !important; border: 1px solid rgba(125, 211, 252, 0.35) !important; color: #FFFFFF !important; backdrop-filter: blur(16px) !important; }
-    [data-testid="stSelectboxVirtualDropdown"], [data-baseweb="popover"] > div { background: rgba(14, 36, 76, 0.90) !important; backdrop-filter: blur(24px) saturate(120%) !important; border: 1px solid rgba(0, 242, 255, 0.45) !important; border-radius: 14px !important; max-width: 92vw !important; }
+    [data-testid="stSelectbox"] input,
+    [data-testid="stSelectbox"] div[role="combobox"] { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.82rem !important; font-weight: 600 !important; color: #FFFFFF !important; }
+    [data-testid="stSelectboxVirtualDropdown"], [data-baseweb="popover"] > div, div[class*="e1oobldh4"], div:has(> [role="listbox"]) { background: rgba(14, 36, 76, 0.96) !important; backdrop-filter: blur(24px) saturate(140%) !important; border: 1px solid rgba(0, 242, 255, 0.45) !important; border-radius: 14px !important; min-width: 320px !important; max-width: 92vw !important; width: auto !important; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 242, 255, 0.25) !important; }
+    [role="listbox"] { min-width: 320px !important; width: 100% !important; }
+    [role="option"] { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.82rem !important; font-weight: 600 !important; white-space: normal !important; word-break: break-word !important; line-height: 1.4 !important; padding: 9px 14px !important; }
+    [role="option"]:hover, [role="option"][aria-selected="true"] { background: rgba(0, 242, 255, 0.15) !important; color: #00F2FF !important; }
     [data-testid="stPlotlyChart"] .xtick text,
     [data-testid="stPlotlyChart"] .ytick text { font-family: 'JetBrains Mono', monospace !important; font-size: 9.5px !important; fill: #E2E8F0 !important; }
     [data-testid="column"],
@@ -1487,30 +1510,45 @@ Provide a structured, authoritative flight safety briefing with specific citatio
     
     try:
         if llm_provider == "Google Gemini":
-            url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+            gemini_models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash"]
+            last_res = None
             headers = {"x-goog-api-key": api_key.strip(), "Content-Type": "application/json"}
             payload = {
                 "contents": [{"parts": [{"text": rag_prompt}]}],
                 "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800}
             }
-            res = requests.post(url, headers=headers, json=payload, timeout=15)
-            if res.status_code == 200:
-                data = res.json()
-                candidates = data.get("candidates") or []
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts") or []
-                    if parts and "text" in parts[0]:
-                        return parts[0]["text"]
-                    if candidates[0].get("finishReason") == "SAFETY":
-                        return "⚠️ Nội dung phản hồi bị bộ lọc an toàn của Google Gemini chặn. Tự động dùng Local Vector Search." if lang == "vi" else "⚠️ Gemini safety filter blocked response. Falling back to Local RAG."
-            elif res.status_code in [400, 401, 403]:
-                return "⚠️ Khóa Google Gemini API không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại API Key trong cài đặt." if lang == "vi" else "⚠️ Invalid or expired Gemini API key. Please verify your credentials."
-            elif res.status_code == 429:
-                return "⚠️ Đã chạm ngưỡng hạn mức Gemini API (Rate Limit 429). Hệ thống tự động chuyển sang bộ đệm thông minh." if lang == "vi" else "⚠️ Gemini API rate limit reached (429). Smart caching is active."
-            elif res.status_code == 404:
-                return "⚠️ Không tìm thấy model Gemini chỉ định (HTTP 404). Hệ thống tự động chuyển sang Local Vector Search." if lang == "vi" else "⚠️ Gemini model not found (HTTP 404). Falling back to Local RAG."
+            for g_model in gemini_models:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{g_model}:generateContent"
+                try:
+                    res = requests.post(url, headers=headers, json=payload, timeout=15)
+                    last_res = res
+                    if res.status_code == 200:
+                        data = res.json()
+                        candidates = data.get("candidates") or []
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts") or []
+                            if parts and "text" in parts[0]:
+                                return parts[0]["text"]
+                            if candidates[0].get("finishReason") == "SAFETY":
+                                return "⚠️ Nội dung phản hồi bị bộ lọc an toàn của Google Gemini chặn. Tự động dùng Local Vector Search." if lang == "vi" else "⚠️ Gemini safety filter blocked response. Falling back to Local RAG."
+                    elif res.status_code == 404:
+                        continue
+                    else:
+                        break
+                except Exception:
+                    continue
+            res = last_res
+            if res is not None:
+                if res.status_code in [400, 401, 403]:
+                    return "⚠️ Khóa Google Gemini API không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại API Key trong cài đặt." if lang == "vi" else "⚠️ Invalid or expired Gemini API key. Please verify your credentials."
+                elif res.status_code == 429:
+                    return "⚠️ Đã chạm ngưỡng hạn mức Gemini API (Rate Limit 429). Hệ thống tự động chuyển sang bộ đệm thông minh." if lang == "vi" else "⚠️ Gemini API rate limit reached (429). Smart caching is active."
+                elif res.status_code == 404:
+                    return "⚠️ Không tìm thấy model Gemini chỉ định (HTTP 404). Hệ thống tự động chuyển sang Local Vector Search." if lang == "vi" else "⚠️ Gemini model not found (HTTP 404). Falling back to Local RAG."
+                else:
+                    return f"⚠️ Lỗi máy chủ Gemini (HTTP {res.status_code}). Tự động dùng Local Vector Search." if lang == "vi" else f"⚠️ Gemini server error ({res.status_code}). Falling back to Local RAG."
             else:
-                return f"⚠️ Lỗi máy chủ Gemini (HTTP {res.status_code}). Tự động dùng Local Vector Search." if lang == "vi" else f"⚠️ Gemini server error ({res.status_code}). Falling back to Local RAG."
+                return "⚠️ Không thể kết nối tới Google Gemini API. Tự động dùng Local Vector Search." if lang == "vi" else "⚠️ Could not connect to Google Gemini API. Falling back to Local RAG."
         elif llm_provider == "OpenAI":
             url = "https://api.openai.com/v1/chat/completions"
             headers = {"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json"}
@@ -2179,27 +2217,44 @@ Provide an authoritative briefing structured in 3 clear sections:
         api_error_notice = None
         try:
             if provider == "Google Gemini":
-                url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+                gemini_models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash"]
+                last_res = None
                 headers = {"x-goog-api-key": api_key.strip(), "Content-Type": "application/json"}
                 payload = {
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800}
                 }
-                res = requests.post(url, headers=headers, json=payload, timeout=15)
-                if res.status_code == 200:
-                    data = res.json()
-                    candidates = data.get("candidates") or []
-                    parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
-                    if parts and "text" in parts[0]:
-                        return parts[0]["text"], "online"
-                    api_error_notice = "⚠️ Phản hồi từ Gemini bị lọc hoặc rỗng." if lang == "vi" else "⚠️ Empty or filtered response from Gemini."
-                elif res.status_code in (400, 401, 403):
-                    api_error_notice = "⚠️ [HTTP 400/401/403] Khóa Google Gemini API Key không hợp lệ hoặc đã hết hạn." if lang == "vi" else "⚠️ [HTTP 400/401/403] Invalid Gemini API Key or expired."
-                elif res.status_code == 429:
-                    api_error_notice = "⚠️ [HTTP 429] Vượt quá hạn mức tần suất (Rate Limit / Quota) của Google Gemini API." if lang == "vi" else "⚠️ [HTTP 429] Gemini API rate limit or quota exceeded."
-                elif res.status_code == 404:
-                    api_error_notice = "⚠️ [HTTP 404] Model Gemini không tồn tại hoặc chưa được cấp quyền." if lang == "vi" else "⚠️ [HTTP 404] Gemini model not found or unauthorized."
-                else:
+                for g_model in gemini_models:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{g_model}:generateContent"
+                    try:
+                        res = requests.post(url, headers=headers, json=payload, timeout=15)
+                        last_res = res
+                        if res.status_code == 200:
+                            data = res.json()
+                            candidates = data.get("candidates") or []
+                            parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+                            if parts and "text" in parts[0]:
+                                return parts[0]["text"], "online"
+                            api_error_notice = "⚠️ Phản hồi từ Gemini bị lọc hoặc rỗng." if lang == "vi" else "⚠️ Empty or filtered response from Gemini."
+                            break
+                        elif res.status_code == 404:
+                            continue
+                        else:
+                            break
+                    except Exception:
+                        continue
+                res = last_res
+                if res is not None and not api_error_notice:
+                    if res.status_code in (400, 401, 403):
+                        api_error_notice = "⚠️ [HTTP 400/401/403] Khóa Google Gemini API Key không hợp lệ hoặc đã hết hạn." if lang == "vi" else "⚠️ [HTTP 400/401/403] Invalid Gemini API Key or expired."
+                    elif res.status_code == 429:
+                        api_error_notice = "⚠️ [HTTP 429] Vượt quá hạn mức tần suất (Rate Limit / Quota) của Google Gemini API." if lang == "vi" else "⚠️ [HTTP 429] Gemini API rate limit or quota exceeded."
+                    elif res.status_code == 404:
+                        api_error_notice = "⚠️ [HTTP 404] Model Gemini không tồn tại hoặc chưa được cấp quyền." if lang == "vi" else "⚠️ [HTTP 404] Gemini model not found or unauthorized."
+                    else:
+                        api_error_notice = f"⚠️ [HTTP {res.status_code}] Google Gemini API trả về phản hồi không thành công." if lang == "vi" else f"⚠️ [HTTP {res.status_code}] Gemini API returned non-200 status."
+                elif res is None and not api_error_notice:
+                    api_error_notice = "⚠️ Không thể kết nối tới Google Gemini API." if lang == "vi" else "⚠️ Could not connect to Gemini API."
                     api_error_notice = f"⚠️ [HTTP {res.status_code}] Google Gemini API trả về phản hồi không thành công." if lang == "vi" else f"⚠️ [HTTP {res.status_code}] Gemini API returned non-200 status."
             elif provider == "OpenAI":
                 url = "https://api.openai.com/v1/chat/completions"
@@ -2311,22 +2366,22 @@ with st.sidebar:
     PRESET_KEYS = ["ISS", "LUNAR_ROVER", "ARTEMIS", "SPACESUIT", "MARS", "EARTH", "CUSTOM"]
     PRESET_LABELS = {
         "vi": {
-            "ISS": "🛰️ Trạm ISS (0.0g • 21% O₂ • 101.3 kPa / 14.7 psi)",
-            "LUNAR_ROVER": "🚜 Căn cứ Mặt Trăng / Rover (0.16g • 30% O₂ • 70.3 kPa / 10.2 psi)",
-            "ARTEMIS": "🌙 Khoang Artemis Tăng cường (0.16g • 34% O₂ • 56.5 kPa / 8.2 psi)",
-            "SPACESUIT": "👨‍🚀 Áo Phi hành gia EVA (0.16g • 100% O₂ • 29.6 kPa / 4.3 psi)",
-            "MARS": "🔴 Tàu Sao Hỏa (0.38g • 26% O₂ • 70.0 kPa / 10.15 psi)",
-            "EARTH": "🌍 Chuẩn Trái Đất (1.0g • 21% O₂ • 101.3 kPa / 14.7 psi)",
-            "CUSTOM": "⚙️ Tùy chỉnh Thông số Bay (Bao gồm CFI-G 85% O₂)"
+            "ISS": "🛰️ Trạm ISS (0.0g • 21% O₂)",
+            "LUNAR_ROVER": "🚜 Căn cứ Mặt Trăng (0.16g • 30% O₂)",
+            "ARTEMIS": "🌙 Khoang Artemis (0.16g • 34% O₂)",
+            "SPACESUIT": "👨‍🚀 Đồ bảo hộ EVA (0.16g • 100% O₂)",
+            "MARS": "🔴 Tàu Sao Hỏa (0.38g • 26% O₂)",
+            "EARTH": "🌍 Chuẩn Trái Đất (1.0g • 21% O₂)",
+            "CUSTOM": "⚙️ Tùy chỉnh Thông số Bay (85-100% O₂)"
         },
         "en": {
-            "ISS": "🛰️ ISS Station (0.0g • 21% O₂ • 101.3 kPa / 14.7 psi)",
-            "LUNAR_ROVER": "🚜 Moon Base / Pressurized Rover (0.16g • 30% O₂ • 70.3 kPa / 10.2 psi)",
-            "ARTEMIS": "🌙 Artemis Enriched Cabin (0.16g • 34% O₂ • 56.5 kPa / 8.2 psi)",
-            "SPACESUIT": "👨‍🚀 EVA Spacesuit Pre-breathe (0.16g • 100% O₂ • 29.6 kPa / 4.3 psi)",
-            "MARS": "🔴 Mars Transit (0.38g • 26% O₂ • 70.0 kPa / 10.15 psi)",
-            "EARTH": "🌍 Earth Baseline (1.0g • 21% O₂ • 101.3 kPa / 14.7 psi)",
-            "CUSTOM": "⚙️ Custom Flight Parameters (Up to CFI-G 85%-100% O₂)"
+            "ISS": "🛰️ ISS Station (0.0g • 21% O₂)",
+            "LUNAR_ROVER": "🚜 Moon Base / Rover (0.16g • 30% O₂)",
+            "ARTEMIS": "🌙 Artemis Cabin (0.16g • 34% O₂)",
+            "SPACESUIT": "👨‍🚀 EVA Suit (0.16g • 100% O₂)",
+            "MARS": "🔴 Mars Transit (0.38g • 26% O₂)",
+            "EARTH": "🌍 Earth Baseline (1.0g • 21% O₂)",
+            "CUSTOM": "⚙️ Custom Parameters (85-100% O₂)"
         }
     }
 
@@ -2524,7 +2579,12 @@ with st.sidebar:
     if "Online" in ai_mode or "Trực tuyến" in ai_mode:
         llm_provider = st.selectbox("Provider", ["Google Gemini", "OpenAI"])
         env_key = os.environ.get("GEMINI_API_KEY" if llm_provider == "Google Gemini" else "OPENAI_API_KEY", "")
-        saved_key = st.session_state.get(f"{llm_provider}_api_key", env_key)
+        if not env_key:
+            try:
+                env_key = st.secrets.get("GEMINI_API_KEY" if llm_provider == "Google Gemini" else "OPENAI_API_KEY", "")
+            except Exception:
+                pass
+        saved_key = st.session_state.get(f"{llm_provider}_api_key", env_key or "")
         api_key_input = st.text_input(
             t["api_key_label"].format(provider=llm_provider),
             value=saved_key,
@@ -2534,6 +2594,7 @@ with st.sidebar:
         )
         if api_key_input:
             st.session_state[f"{llm_provider}_api_key"] = api_key_input.strip()
+            st.caption("✅ " + ("API Key đã kết nối & sẵn sàng (Google Gemini Online Engine)." if lang == "vi" else "API Key connected & active (Google Gemini Online Engine)."))
         else:
             st.caption("ℹ️ " + ("Chưa nhập API Key. Hệ thống tự động dùng Local Vector Search (Zero Latency)." if lang == "vi" else "No API Key entered. System falls back to Local Vector Search."))
 
@@ -3633,23 +3694,29 @@ with tab_morph:
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div>
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                        <span class="nasa-pill" style="background: {morph_metrics['color_theme']}; color: #000000; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.04em;">
+                        <span class="nasa-pill" style="background: {morph_metrics['color_theme']}; color: #000000; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.04em; font-family: 'Plus Jakarta Sans', sans-serif;">
                             {t['active_regime_badge']}
                         </span>
-                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #94A3B8;">
-                            REGIME CODE: <span style="color: {morph_metrics['color_theme']}; font-weight: 700;">{morph_metrics['regime_code']}</span>
+                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; color: #94A3B8; font-weight: 600;">
+                            REGIME CODE: <span style="color: {morph_metrics['color_theme']}; font-weight: 800;">{morph_metrics['regime_code']}</span>
                         </span>
                     </div>
-                    <h3 style="color: #FFFFFF; margin: 4px 0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.28rem;">
+                    <h3 style="color: #FFFFFF; margin: 4px 0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.30rem; font-weight: 800; letter-spacing: -0.01em;">
                         {morph_metrics['regime_name']}
                     </h3>
                 </div>
-                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: #E2E8F0; text-align: right; background: rgba(13, 25, 48, 0.65); padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
-                    <div style="margin-bottom: 2px;"><b>{t['peak_temp_label']}:</b> <span style="color: #00F2FF; font-weight: 800;">~{morph_metrics['peak_temp_k']:.0f} K</span></div>
-                    <div><b>{t['soot_vol_label']}:</b> <span style="color: #F59E0B; font-weight: 700;">{morph_metrics['soot_fraction']}</span></div>
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.82rem; color: #E2E8F0; text-align: right; background: rgba(13, 25, 48, 0.75); padding: 8px 16px; border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.25); box-shadow: 0 4px 14px rgba(0,0,0,0.35);">
+                    <div style="margin-bottom: 3px; display: flex; justify-content: flex-end; gap: 8px; align-items: center;">
+                        <span style="color: #94A3B8; font-weight: 600;">{t['peak_temp_label'].rstrip(':')}:</span> 
+                        <span style="color: #00F2FF; font-weight: 800;">~{morph_metrics['peak_temp_k']:.0f} K</span>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 8px; align-items: center;">
+                        <span style="color: #94A3B8; font-weight: 600;">{t['soot_vol_label'].rstrip(':')}:</span> 
+                        <span style="color: #F59E0B; font-weight: 700;">{morph_metrics['soot_fraction']}</span>
+                    </div>
                 </div>
             </div>
-            <p style="font-size: 0.88rem; color: #D1D5DB; margin-top: 10px; margin-bottom: 0; line-height: 1.55;">
+            <p style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.88rem; color: #CBD5E1; margin-top: 10px; margin-bottom: 0; line-height: 1.6; font-weight: 400;">
                 {morph_metrics['morph_desc']}
             </p>
         </div>
@@ -3667,21 +3734,21 @@ with tab_morph:
         render_html(f"""
             <div class="bento-telemetry-card" style="border-top-color: #00F2FF;">
                 <div class="bento-card-title">
-                    <span>🌡️ {t['peak_temp_label']}</span>
+                    <span>🌡️ {t['peak_temp_label'].rstrip(':')}</span>
                     <span style="color: #00F2FF; font-size: 0.65rem;">KELVIN</span>
                 </div>
-                <div class="bento-card-val" style="color: #00F2FF;">
+                <div class="bento-card-val" style="color: #00F2FF; font-family: 'Plus Jakarta Sans', sans-serif !important;">
                     ~{morph_metrics['peak_temp_k']:.0f} <span style="font-size: 0.95rem; font-weight: 600; color: #94A3B8;">K</span>
                 </div>
                 <div style="margin: 8px 0 4px 0;">
                     <div style="height: 6px; width: 100%; border-radius: 99px; background: linear-gradient(90deg, #1E3A8A 0%, #0284C7 20%, #00F2FF 45%, #F59E0B 75%, #EF4444 100%); position: relative; border: 1px solid rgba(255,255,255,0.12);">
                         <div style="position: absolute; left: {pct_temp}%; top: -3px; width: 4px; height: 12px; background: #FFFFFF; border-radius: 2px; box-shadow: 0 0 8px #00F2FF; transform: translateX(-50%);"></div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 0.60rem; color: #64748B; margin-top: 3px;">
+                    <div style="display: flex; justify-content: space-between; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.65rem; font-weight: 600; color: #64748B; margin-top: 3px;">
                         <span>300K</span><span>1380K</span><span>2400K</span>
                     </div>
                 </div>
-                <div class="bento-card-sub" style="color: #38BDF8; font-size: 0.70rem;">
+                <div class="bento-card-sub" style="color: #38BDF8; font-size: 0.70rem; font-family: 'Plus Jakarta Sans', sans-serif;">
                     ~{morph_metrics['peak_temp_k'] - 273.15:.0f} °C • {temp_badge_lbl}
                 </div>
             </div>
@@ -3709,16 +3776,16 @@ with tab_morph:
         render_html(f"""
             <div class="bento-telemetry-card" style="border-top-color: {ar_color};">
                 <div class="bento-card-title">
-                    <span>📐 {t['aspect_ratio_card']}</span>
+                    <span>📐 {t['aspect_ratio_card'].rstrip(':')}</span>
                     <span>{mini_shape_svg}</span>
                 </div>
-                <div class="bento-card-val" style="color: {ar_color};">
+                <div class="bento-card-val" style="color: {ar_color}; font-family: 'Plus Jakarta Sans', sans-serif !important;">
                     {morph_metrics['aspect_ratio']:.2f} <span style="font-size: 0.95rem; font-weight: 600; color: #94A3B8;">L/W</span>
                 </div>
                 <div style="height: 6px; width: 100%; border-radius: 99px; background: rgba(15,23,42,0.8); margin: 8px 0 4px 0; border: 1px solid rgba(255,255,255,0.1); overflow: hidden;">
                     <div style="width: {min(100, int(morph_metrics['aspect_ratio'] / 3.5 * 100))}%; height: 100%; background: {ar_color}; border-radius: 99px; box-shadow: 0 0 8px {ar_color};"></div>
                 </div>
-                <div class="bento-card-sub" style="color: {ar_color}; font-size: 0.70rem;">
+                <div class="bento-card-sub" style="color: {ar_color}; font-size: 0.70rem; font-family: 'Plus Jakarta Sans', sans-serif;">
                     {ar_sub}
                 </div>
             </div>
@@ -3746,22 +3813,22 @@ with tab_morph:
                     <span>⚙️ {'CHỈ SỐ KHÔNG THỨ NGUYÊN' if lang == 'vi' else 'DIMENSIONLESS TRANSPORT'}</span>
                     <span style="color: #A855F7; font-size: 0.65rem;">FLUID / RXN</span>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-family: 'JetBrains Mono', monospace; margin: 4px 0;">
-                    <div style="background: rgba(15,23,42,0.6); padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); font-size: 0.74rem;">
-                        <span style="color: #94A3B8;">Da:</span> <b style="color: #38BDF8;">{morph_metrics['damkohler']:.1f}</b>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-family: 'Plus Jakarta Sans', sans-serif; margin: 4px 0;">
+                    <div style="background: rgba(15,23,42,0.65); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.76rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #94A3B8; font-weight: 600;">Da:</span> <b style="color: #38BDF8; font-weight: 800;">{morph_metrics['damkohler']:.1f}</b>
                     </div>
-                    <div style="background: rgba(15,23,42,0.6); padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); font-size: 0.74rem;">
-                        <span style="color: #94A3B8;">Re:</span> <b style="color: #00F2FF;">{morph_metrics['reynolds']:.1f}</b>
+                    <div style="background: rgba(15,23,42,0.65); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.76rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #94A3B8; font-weight: 600;">Re:</span> <b style="color: #00F2FF; font-weight: 800;">{morph_metrics['reynolds']:.1f}</b>
                     </div>
-                    <div style="background: rgba(15,23,42,0.6); padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); font-size: 0.74rem;">
-                        <span style="color: #94A3B8;">Pe:</span> <b style="color: #10B981;">{morph_metrics['peclet']:.1f}</b>
+                    <div style="background: rgba(15,23,42,0.65); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.76rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #94A3B8; font-weight: 600;">Pe:</span> <b style="color: #10B981; font-weight: 800;">{morph_metrics['peclet']:.1f}</b>
                     </div>
-                    <div style="background: rgba(15,23,42,0.6); padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); font-size: 0.74rem;">
-                        <span style="color: #94A3B8;">Ri:</span> <b style="color: #F59E0B;">{ri_val:.2f}</b>
+                    <div style="background: rgba(15,23,42,0.65); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.76rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #94A3B8; font-weight: 600;">Ri:</span> <b style="color: #F59E0B; font-weight: 800;">{ri_val:.2f}</b>
                     </div>
                 </div>
                 <div style="margin-top: 6px;">
-                    <span style="background: {ri_badge_bg}; color: {ri_badge_col}; border: 1px solid {ri_badge_col}55; border-radius: 99px; padding: 2px 7px; font-size: 0.67rem; font-weight: 700; display: inline-block;">
+                    <span style="background: {ri_badge_bg}; color: {ri_badge_col}; border: 1px solid {ri_badge_col}55; border-radius: 99px; padding: 2px 8px; font-size: 0.67rem; font-weight: 700; display: inline-block; font-family: 'Plus Jakarta Sans', sans-serif;">
                         {ri_badge}
                     </span>
                 </div>
@@ -3787,21 +3854,33 @@ with tab_morph:
             eclss_col = "#EF4444"
             eclss_bg = "rgba(239, 68, 68, 0.18)"
 
+        # Tách phần phân loại và phần chi tiết thông số để hiển thị cân đối
+        if "(" in soot_str:
+            soot_headline, soot_detail = soot_str.split("(", 1)
+            soot_headline = soot_headline.strip()
+            soot_detail = "(" + soot_detail.strip()
+        else:
+            soot_headline = soot_str
+            soot_detail = ""
+
         render_html(f"""
             <div class="bento-telemetry-card" style="border-top-color: {eclss_col};">
                 <div class="bento-card-title">
                     <span>🌫️ {'BỒ HÓNG & ECLSS' if lang == 'vi' else 'SOOT & ECLSS'}</span>
                     <span style="color: {eclss_col}; font-size: 0.65rem;">FILTER LOAD</span>
                 </div>
-                <div class="bento-card-val" style="color: {eclss_col}; font-size: 1.25rem;">
-                    {soot_str}
+                <div class="bento-card-val" style="color: {eclss_col}; font-size: 1.30rem; font-weight: 800; font-family: 'Plus Jakarta Sans', sans-serif !important; letter-spacing: -0.01em;">
+                    {soot_headline}
                 </div>
-                <div style="margin: 8px 0 6px 0;">
-                    <span style="background: {eclss_bg}; color: {eclss_col}; border: 1px solid {eclss_col}66; border-radius: 99px; padding: 2px 8px; font-size: 0.68rem; font-weight: 800; display: inline-block;">
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; color: #CBD5E1; font-weight: 600; margin-top: 2px; min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{soot_detail}">
+                    {soot_detail}
+                </div>
+                <div style="margin: 6px 0 6px 0;">
+                    <span style="background: {eclss_bg}; color: {eclss_col}; border: 1px solid {eclss_col}66; border-radius: 99px; padding: 2px 8px; font-size: 0.68rem; font-weight: 800; display: inline-block; font-family: 'Plus Jakarta Sans', sans-serif;">
                         {eclss_tag}
                     </span>
                 </div>
-                <div class="bento-card-sub" style="color: #94A3B8; font-size: 0.70rem;">
+                <div class="bento-card-sub" style="color: #94A3B8; font-size: 0.70rem; font-family: 'Plus Jakarta Sans', sans-serif;">
                     {eclss_sub}
                 </div>
             </div>
@@ -3815,12 +3894,12 @@ with tab_morph:
     with col_flame_render:
         with st.container(key="flame_chamber_left"):
             flame_status_beacon = f'''
-            <span style="display: inline-flex; align-items: center; gap: 5px; background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 99px; padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 700;">
+            <span style="display: inline-flex; align-items: center; gap: 5px; background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 99px; padding: 2px 8px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.68rem; font-weight: 800;">
                 <span style="width: 6px; height: 6px; border-radius: 50%; background: #EF4444; box-shadow: 0 0 6px #EF4444;"></span>
                 {'DẬP TẮT HOÀN TOÀN' if lang == 'vi' else 'QUENCHED / COLD'}
             </span>
             ''' if is_top_extinguished else f'''
-            <span style="display: inline-flex; align-items: center; gap: 5px; background: rgba(0, 242, 255, 0.12); color: #00F2FF; border: 1px solid rgba(0, 242, 255, 0.35); border-radius: 99px; padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 700;">
+            <span style="display: inline-flex; align-items: center; gap: 5px; background: rgba(0, 242, 255, 0.12); color: #00F2FF; border: 1px solid rgba(0, 242, 255, 0.35); border-radius: 99px; padding: 2px 8px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.68rem; font-weight: 800;">
                 <span style="width: 6px; height: 6px; border-radius: 50%; background: #00F2FF; box-shadow: 0 0 6px #00F2FF;"></span>
                 {'BUỒNG QUANG PHỔ CIR-FLEX' if lang == 'vi' else 'CIR-FLEX OPTICAL RIG'}
             </span>
@@ -3831,7 +3910,7 @@ with tab_morph:
                 <div>
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
                         {flame_status_beacon}
-                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: #64748B;">Z-AXIS 1:1 CALIBRATED</span>
+                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.65rem; font-weight: 700; color: #64748B;">Z-AXIS 1:1 CALIBRATED</span>
                     </div>
                     <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.98rem; font-weight: 800; color: #FFFFFF; line-height: 1.25;">
                         🔬 {'Buồng Cắt Lớp Hình Thái Học' if lang == 'vi' else 'Cross-Section Hologram Bay'}
@@ -3840,12 +3919,12 @@ with tab_morph:
                         {'Mô phỏng hình học cắt lớp vi trọng lực' if lang == 'vi' else 'Cross-section flame geometry & diffusion interplay'}
                     </div>
                 </div>
-                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 800; color: #38BDF8; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 3px 8px; white-space: nowrap; text-align: right;">
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; font-weight: 800; color: #38BDF8; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 3px 8px; white-space: nowrap; text-align: right;">
                     AR: <span style="color: #F59E0B;">{morph_metrics['aspect_ratio']:.2f}</span><br>
                     <span style="color: #94A3B8; font-size: 0.62rem;">g={gravity_g:.2f}g</span>
                 </div>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(13, 25, 48, 0.75); border: 1px solid rgba(56, 189, 248, 0.28); border-radius: 10px; padding: 6px 12px; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(13, 25, 48, 0.75); border: 1px solid rgba(56, 189, 248, 0.28); border-radius: 10px; padding: 6px 12px; margin-bottom: 10px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem;">
                 <span style="color: #38BDF8;">
                     🔬 <b>{'QUANG HỌC CIR-FLEX' if lang == 'vi' else 'OPTICAL SENSING'}</b>: {'Phát xạ CH*/C2*' if lang == 'vi' else 'CH*/C2* Radical Shell'}
                 </span>
@@ -4095,7 +4174,7 @@ with tab_morph:
             render_html(f"""
             <div style="display: grid; grid-template-columns: 1.15fr 0.8fr 1.05fr; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(56, 189, 248, 0.18);">
                 <div style="background: rgba(13, 25, 48, 0.65); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 6px 8px; min-width: 0; overflow: hidden;">
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         {'Hình thái' if lang == 'vi' else 'Regime'}
                     </div>
                     <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; font-weight: 800; color: #FFFFFF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
@@ -4103,7 +4182,7 @@ with tab_morph:
                     </div>
                 </div>
                 <div style="background: rgba(13, 25, 48, 0.65); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 6px 8px; min-width: 0; overflow: hidden;">
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         {'Tỷ số Dạng' if lang == 'vi' else 'Aspect Ratio'}
                     </div>
                     <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; font-weight: 800; color: #38BDF8; margin-top: 2px;">
@@ -4111,10 +4190,10 @@ with tab_morph:
                     </div>
                 </div>
                 <div style="background: rgba(13, 25, 48, 0.65); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 6px 8px; min-width: 0; overflow: hidden;">
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         {'Truyền chất' if lang == 'vi' else 'Transport'}
                     </div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.70rem; font-weight: 700; color: #10B981; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.70rem; font-weight: 700; color: #10B981; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         {transport_mode_txt}
                     </div>
                 </div>
@@ -4127,11 +4206,11 @@ with tab_morph:
             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(56, 189, 248, 0.2);">
                 <div>
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
-                        <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(56, 189, 248, 0.12); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 99px; padding: 2px 7px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 700;">
+                        <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(56, 189, 248, 0.12); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 99px; padding: 2px 7px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.65rem; font-weight: 800;">
                             <span style="width: 5px; height: 5px; border-radius: 50%; background: #38BDF8; box-shadow: 0 0 5px #38BDF8;"></span>
                             THERMAL & 3D RIG
                         </span>
-                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: #64748B;">KELVIN FIELD</span>
+                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.65rem; font-weight: 700; color: #64748B;">KELVIN FIELD</span>
                     </div>
                     <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.98rem; font-weight: 800; color: #FFFFFF; line-height: 1.25;">
                         🌡️ {'Bản đồ Đẳng nhiệt & Mô hình 3D' if lang == 'vi' else 'Isothermal Map & 3D Model'}
@@ -4140,7 +4219,7 @@ with tab_morph:
                         {'Trường nhiệt độ Kelvin & quang phổ vi trọng lực' if lang == 'vi' else 'Kelvin thermal field & volumetric emission'}
                     </div>
                 </div>
-                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 800; color: #00F2FF; background: rgba(0, 242, 255, 0.12); border: 1px solid rgba(0, 242, 255, 0.3); border-radius: 8px; padding: 3px 8px; white-space: nowrap; text-align: right;">
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; font-weight: 800; color: #00F2FF; background: rgba(0, 242, 255, 0.12); border: 1px solid rgba(0, 242, 255, 0.3); border-radius: 8px; padding: 3px 8px; white-space: nowrap; text-align: right;">
                     T_max: <span style="color: #00F2FF;">{morph_metrics['peak_temp_k']:.0f}K</span><br>
                     <span style="color: #94A3B8; font-size: 0.62rem;">{morph_metrics['peak_temp_k'] - 273.15:.0f}°C</span>
                 </div>
@@ -4252,7 +4331,7 @@ with tab_morph:
             render_html(f"""
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(56, 189, 248, 0.18);">
                 <div style="background: rgba(13, 25, 48, 0.65); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 6px 8px; min-width: 0; overflow: hidden;">
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         {'Nhiệt độ T_max' if lang == 'vi' else 'Peak Temp'}
                     </div>
                     <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; font-weight: 800; color: #00F2FF; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -4260,18 +4339,18 @@ with tab_morph:
                     </div>
                 </div>
                 <div style="background: rgba(13, 25, 48, 0.65); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 6px 8px; min-width: 0; overflow: hidden;">
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         {'Bồ hóng' if lang == 'vi' else 'Soot Level'}
                     </div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; font-weight: 800; color: #F59E0B; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.74rem; font-weight: 700; color: #F59E0B; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         {morph_metrics['soot_fraction']}
                     </div>
                 </div>
                 <div style="background: rgba(13, 25, 48, 0.65); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 6px 8px; min-width: 0; overflow: hidden;">
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 0.60rem; color: #94A3B8; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         {'Quang phổ' if lang == 'vi' else 'Spectral'}
                     </div>
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 700; color: #38BDF8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; font-weight: 700; color: #38BDF8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                         CH* / C₂*
                     </div>
                 </div>
@@ -4291,7 +4370,7 @@ with tab_morph:
                     <div class="bento-env-header">
                         <div>
                             <div class="bento-env-title">🌍 TRÁI ĐẤT (1.0g)</div>
-                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; margin-top: 2px;">BASELINE TERRESTRIAL</div>
+                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; margin-top: 2px;">BASELINE TERRESTRIAL</div>
                         </div>
                         <span class="bento-env-badge" style="background: rgba(245, 158, 11, 0.2); color: #F59E0B; border: 1px solid #F59E0B;">
                             LỰC NỔI THỐNG TRỊ
@@ -4321,7 +4400,7 @@ with tab_morph:
                     <div class="bento-env-header">
                         <div>
                             <div class="bento-env-title">🛰️ TRẠM ISS (0.0g)</div>
-                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; margin-top: 2px;">MICROGRAVITY SHELL</div>
+                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; margin-top: 2px;">MICROGRAVITY SHELL</div>
                         </div>
                         <span class="bento-env-badge" style="background: rgba(0, 242, 255, 0.2); color: #00F2FF; border: 1px solid #00F2FF;">
                             KHUẾCH TÁN ĐẲNG HƯỚNG
@@ -4351,7 +4430,7 @@ with tab_morph:
                     <div class="bento-env-header">
                         <div>
                             <div class="bento-env-title">🌕 MẶT TRĂNG & SAO HỎA</div>
-                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; margin-top: 2px;">0.16g / 0.38g PARTIAL</div>
+                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; margin-top: 2px;">0.16g / 0.38g PARTIAL</div>
                         </div>
                         <span class="bento-env-badge" style="background: rgba(239, 68, 68, 0.25); color: #EF4444; border: 1px solid #EF4444;">
                             BÀNH TRƯỚNG NGUY HIỂM
@@ -4382,7 +4461,7 @@ with tab_morph:
                     <div class="bento-env-header">
                         <div>
                             <div class="bento-env-title">🌍 EARTH (1.0g)</div>
-                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; margin-top: 2px;">BASELINE TERRESTRIAL</div>
+                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; margin-top: 2px;">BASELINE TERRESTRIAL</div>
                         </div>
                         <span class="bento-env-badge" style="background: rgba(245, 158, 11, 0.2); color: #F59E0B; border: 1px solid #F59E0B;">
                             BUOYANCY DOMINANT
@@ -4412,7 +4491,7 @@ with tab_morph:
                     <div class="bento-env-header">
                         <div>
                             <div class="bento-env-title">🛰️ ISS STATION (0.0g)</div>
-                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; margin-top: 2px;">MICROGRAVITY SHELL</div>
+                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; margin-top: 2px;">MICROGRAVITY SHELL</div>
                         </div>
                         <span class="bento-env-badge" style="background: rgba(0, 242, 255, 0.2); color: #00F2FF; border: 1px solid #00F2FF;">
                             PURE 3D DIFFUSION
@@ -4442,7 +4521,7 @@ with tab_morph:
                     <div class="bento-env-header">
                         <div>
                             <div class="bento-env-title">🌕 MOON & MARS</div>
-                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; margin-top: 2px;">0.16g / 0.38g PARTIAL</div>
+                            <div style="font-size: 0.78rem; color: #94A3B8; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; margin-top: 2px;">0.16g / 0.38g PARTIAL</div>
                         </div>
                         <span class="bento-env-badge" style="background: rgba(239, 68, 68, 0.25); color: #EF4444; border: 1px solid #EF4444;">
                             EXPANDING HAZARD
