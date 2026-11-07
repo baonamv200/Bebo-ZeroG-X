@@ -25,6 +25,8 @@ if os.path.exists(_env_file):
                 if _line and not _line.startswith("#") and "=" in _line:
                     _k, _v = _line.split("=", 1)
                     _k = _k.strip()
+                    if "#" in _v and not (_v.strip().startswith('"') or _v.strip().startswith("'")):
+                        _v = _v.split("#", 1)[0]
                     _v = _v.strip().strip('"').strip("'")
                     if _k:
                         os.environ.setdefault(_k, _v)
@@ -303,14 +305,30 @@ render_html("""
     .hud-specimen-card { background: rgba(11, 23, 44, 0.85) !important; border: 1px solid rgba(56, 189, 248, 0.35) !important; border-top: 3px solid #00F2FF !important; border-radius: 16px !important; padding: 18px !important; backdrop-filter: blur(20px) !important; box-shadow: 0 10px 30px rgba(2, 6, 23, 0.5) !important; }
     .stButton > button:not([kind="primary"]), [data-testid="baseButton-secondary"] { background: rgba(22, 52, 104, 0.52) !important; color: #F8FAFC !important; border: 1px solid rgba(125, 211, 252, 0.35) !important; border-top: 1px solid rgba(255, 255, 255, 0.35) !important; border-radius: 12px !important; backdrop-filter: blur(14px) !important; }
     .stButton > button:not([kind="primary"]):hover { background: rgba(32, 72, 138, 0.72) !important; color: #00F2FF !important; border-color: #00F2FF !important; box-shadow: 0 4px 14px rgba(0, 242, 255, 0.22) !important; transform: none !important; }
-    .stTextInput > div > div > input,
-    [data-testid="stSelectbox"] div[data-baseweb="select"] { border-radius: 12px !important; background: rgba(20, 48, 96, 0.55) !important; border: 1px solid rgba(125, 211, 252, 0.35) !important; color: #FFFFFF !important; backdrop-filter: blur(16px) !important; }
-    [data-testid="stSelectbox"] input,
-    [data-testid="stSelectbox"] div[role="combobox"] { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.82rem !important; font-weight: 600 !important; color: #FFFFFF !important; }
-    [data-testid="stSelectboxVirtualDropdown"], [data-baseweb="popover"] > div, div[class*="e1oobldh4"], div:has(> [role="listbox"]) { background: rgba(14, 36, 76, 0.96) !important; backdrop-filter: blur(24px) saturate(140%) !important; border: 1px solid rgba(0, 242, 255, 0.45) !important; border-radius: 14px !important; min-width: 320px !important; max-width: 92vw !important; width: auto !important; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 242, 255, 0.25) !important; }
-    [role="listbox"] { min-width: 320px !important; width: 100% !important; }
-    [role="option"] { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.82rem !important; font-weight: 600 !important; white-space: normal !important; word-break: break-word !important; line-height: 1.4 !important; padding: 9px 14px !important; }
-    [role="option"]:hover, [role="option"][aria-selected="true"] { background: rgba(0, 242, 255, 0.15) !important; color: #00F2FF !important; }
+    .stTextInput > div > div > input { border-radius: 12px !important; background: rgba(20, 48, 96, 0.55) !important; border: 1px solid rgba(125, 211, 252, 0.35) !important; color: #FFFFFF !important; backdrop-filter: blur(16px) !important; }
+    [data-testid="stSelectbox"] div[data-baseweb="select"] { border-radius: 12px !important; background: rgba(20, 48, 96, 0.55) !important; border: 1px solid rgba(125, 211, 252, 0.35) !important; color: #FFFFFF !important; backdrop-filter: blur(16px) !important; min-height: 44px !important; height: auto !important; }
+    [data-testid="stSelectbox"] div[data-baseweb="select"] > div { min-height: 42px !important; height: auto !important; padding-top: 3px !important; padding-bottom: 3px !important; }
+    [data-testid="stSelectbox"] div[data-baseweb="select"] [data-testid="stMarkdownContainer"],
+    [data-testid="stSelectbox"] div[data-baseweb="select"] div[role="combobox"],
+    [data-testid="stSelectbox"] div[data-baseweb="select"] div[aria-haspopup="listbox"],
+    [data-testid="stSelectbox"] div[data-baseweb="select"] span,
+    [data-testid="stSelectbox"] div[data-baseweb="select"] p,
+    [data-testid="stSelectbox"] div[data-baseweb="select"] div { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.82rem !important; font-weight: 600 !important; color: #FFFFFF !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.35 !important; }
+    [data-testid="stSelectbox"] input { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.82rem !important; font-weight: 600 !important; color: #FFFFFF !important; }
+    div[data-baseweb="layer-host"],
+    div[data-baseweb="layer"],
+    div[data-baseweb="popover"] {
+        z-index: 999999999 !important;
+        position: relative;
+    }
+    div[data-baseweb="popover"] {
+        max-width: 96vw !important;
+    }
+    [data-testid="stSelectboxVirtualDropdown"], [data-baseweb="popover"] > div, div[class*="e1oobldh4"], div:has(> [role="listbox"]) { background: rgba(14, 36, 76, 0.98) !important; backdrop-filter: blur(24px) saturate(140%) !important; -webkit-backdrop-filter: blur(24px) saturate(140%) !important; border: 1px solid rgba(0, 242, 255, 0.5) !important; border-radius: 14px !important; min-width: 290px !important; max-width: 95vw !important; width: max-content !important; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85), 0 0 20px rgba(0, 242, 255, 0.25) !important; overflow-x: hidden !important; }
+    [role="listbox"] { min-width: 290px !important; max-width: 100% !important; width: 100% !important; padding: 6px 0 !important; }
+    [role="option"], [role="option"] > div, [role="option"] span, [role="option"] p, [role="option"] div, [role="option"] * { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.82rem !important; font-weight: 600 !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.38 !important; }
+    [role="option"] { padding: 10px 14px !important; min-height: 42px !important; cursor: pointer !important; transition: background 0.15s ease, color 0.15s ease !important; }
+    [role="option"]:hover, [role="option"][aria-selected="true"] { background: rgba(0, 242, 255, 0.18) !important; color: #00F2FF !important; }
     [data-testid="stPlotlyChart"] .xtick text,
     [data-testid="stPlotlyChart"] .ytick text { font-family: 'JetBrains Mono', monospace !important; font-size: 9.5px !important; fill: #E2E8F0 !important; }
     [data-testid="column"],
@@ -349,10 +367,10 @@ render_html("""
         .stMainContainer,
         section[data-testid="stMain"],
         .stMain { width: 100vw !important; max-width: 100vw !important; min-width: 100vw !important; flex: 1 1 100% !important; margin: 0 !important; padding: 0 !important; left: 0 !important; }
-    section[data-testid="stSidebar"] { position: fixed !important; top: 0 !important; left: 0 !important; bottom: 0 !important; height: 100vh !important; height: 100dvh !important; z-index: 10000000 !important; transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important; }
+    section[data-testid="stSidebar"] { position: fixed !important; top: 0 !important; left: 0 !important; bottom: 0 !important; height: 100vh !important; height: 100dvh !important; z-index: 100000 !important; transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important; }
     section[data-testid="stSidebar"][data-collapsed="true"],
         [data-testid="stSidebar"][data-collapsed="true"] { transform: translateX(-105%) !important; width: 0px !important; min-width: 0px !important; max-width: 0px !important; display: none !important; visibility: hidden !important; pointer-events: none !important; }
-    section[data-testid="stSidebar"]:not([data-collapsed="true"]) { transform: translateX(0) !important; width: min(320px, 84vw) !important; min-width: min(320px, 84vw) !important; max-width: 85vw !important; display: block !important; visibility: visible !important; pointer-events: auto !important; background: linear-gradient(180deg, rgba(10, 24, 52, 0.96) 0%, rgba(6, 16, 36, 0.98) 100%) !important; backdrop-filter: blur(28px) saturate(200%) !important; -webkit-backdrop-filter: blur(28px) saturate(200%) !important; box-shadow: 12px 0 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 242, 255, 0.3) !important; border-right: 1px solid rgba(0, 242, 255, 0.45) !important; }
+    section[data-testid="stSidebar"]:not([data-collapsed="true"]) { transform: translateX(0) !important; width: min(350px, 88vw) !important; min-width: min(330px, 86vw) !important; max-width: 90vw !important; display: block !important; visibility: visible !important; pointer-events: auto !important; background: linear-gradient(180deg, rgba(10, 24, 52, 0.96) 0%, rgba(6, 16, 36, 0.98) 100%) !important; backdrop-filter: blur(28px) saturate(200%) !important; -webkit-backdrop-filter: blur(28px) saturate(200%) !important; box-shadow: 12px 0 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 242, 255, 0.3) !important; border-right: 1px solid rgba(0, 242, 255, 0.45) !important; }
     .block-container { padding-top: 3.2rem !important; padding-left: clamp(0.5rem, 2.5vw, 1rem) !important; padding-right: clamp(0.5rem, 2.5vw, 1rem) !important; padding-bottom: 2rem !important; max-width: 100vw !important; overflow-x: hidden !important; }
     .stApp { overflow-x: hidden !important; }
     [data-testid="stHorizontalBlock"] { flex-direction: column !important; gap: 16px !important; max-width: 100% !important; min-width: 0 !important; }
@@ -409,6 +427,23 @@ render_html("""
     .col-status span { padding: 2px 4px !important; font-size: 0.60rem !important; border-radius: 4px !important; display: inline-block !important; white-space: nowrap !important; letter-spacing: -0.02em !important; }
     .matrix-table { min-width: 620px !important; font-size: 0.78rem !important; }
     div[data-testid="stPlotlyChart"] { padding: 10px 6px 6px 6px !important; border-radius: 14px !important; margin-bottom: 12px !important; }
+    /* Mobile sidebar radio button text wrapping */
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label p,
+    section[data-testid="stSidebar"] div[data-testid="stRadio"] label div {
+        white-space: normal !important;
+        word-break: break-word !important;
+    }
+    /* Mobile Chambers flexible heights & padding */
+    div[class*="st-key-flame_chamber_left"],
+    div[class*="st-key-flame_chamber_right"] {
+        min-height: auto !important;
+        padding: 14px 12px !important;
+        margin-bottom: 16px !important;
+    }
+    .flame-hud-stage {
+        min-height: 280px !important;
+        max-height: 380px !important;
+    }
     }
     @media (min-width: 769px) and (max-width: 1100px) {
     [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4)) { flex-wrap: wrap !important; gap: 12px !important; }
@@ -1485,7 +1520,7 @@ def generate_3d_flame_figure(
     )
 
     fig_3d.add_annotation(
-        text="© 2026 Bebo AstroX • NASA Space Apps",
+        text="© 2026 Bebo ZeroG-X • NASA Space Apps",
         xref="paper", yref="paper",
         x=0.98, y=0.02,
         showarrow=False,
@@ -2255,7 +2290,6 @@ Provide an authoritative briefing structured in 3 clear sections:
                         api_error_notice = f"⚠️ [HTTP {res.status_code}] Google Gemini API trả về phản hồi không thành công." if lang == "vi" else f"⚠️ [HTTP {res.status_code}] Gemini API returned non-200 status."
                 elif res is None and not api_error_notice:
                     api_error_notice = "⚠️ Không thể kết nối tới Google Gemini API." if lang == "vi" else "⚠️ Could not connect to Gemini API."
-                    api_error_notice = f"⚠️ [HTTP {res.status_code}] Google Gemini API trả về phản hồi không thành công." if lang == "vi" else f"⚠️ [HTTP {res.status_code}] Gemini API returned non-200 status."
             elif provider == "OpenAI":
                 url = "https://api.openai.com/v1/chat/completions"
                 headers = {"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json"}
@@ -2366,22 +2400,22 @@ with st.sidebar:
     PRESET_KEYS = ["ISS", "LUNAR_ROVER", "ARTEMIS", "SPACESUIT", "MARS", "EARTH", "CUSTOM"]
     PRESET_LABELS = {
         "vi": {
-            "ISS": "🛰️ Trạm ISS (0.0g • 21% O₂)",
-            "LUNAR_ROVER": "🚜 Căn cứ Mặt Trăng (0.16g • 30% O₂)",
-            "ARTEMIS": "🌙 Khoang Artemis (0.16g • 34% O₂)",
-            "SPACESUIT": "👨‍🚀 Đồ bảo hộ EVA (0.16g • 100% O₂)",
-            "MARS": "🔴 Tàu Sao Hỏa (0.38g • 26% O₂)",
-            "EARTH": "🌍 Chuẩn Trái Đất (1.0g • 21% O₂)",
-            "CUSTOM": "⚙️ Tùy chỉnh Thông số Bay (85-100% O₂)"
+            "ISS": "🛰️ Trạm ISS (0.0g • 21% O₂ • 101.3 kPa)",
+            "LUNAR_ROVER": "🚜 Căn cứ Mặt Trăng (0.16g • 30% O₂ • 70.3 kPa)",
+            "ARTEMIS": "🌙 Khoang Artemis (0.16g • 34% O₂ • 56.5 kPa)",
+            "SPACESUIT": "👨‍🚀 Đồ bảo hộ EVA (0.16g • 100% O₂ • 29.6 kPa)",
+            "MARS": "🔴 Tàu Sao Hỏa (0.38g • 26% O₂ • 70.0 kPa)",
+            "EARTH": "🌍 Chuẩn Trái Đất (1.0g • 21% O₂ • 101.3 kPa)",
+            "CUSTOM": "⚙️ Tùy chỉnh Thông số Bay (Toàn dải CFD)"
         },
         "en": {
-            "ISS": "🛰️ ISS Station (0.0g • 21% O₂)",
-            "LUNAR_ROVER": "🚜 Moon Base / Rover (0.16g • 30% O₂)",
-            "ARTEMIS": "🌙 Artemis Cabin (0.16g • 34% O₂)",
-            "SPACESUIT": "👨‍🚀 EVA Suit (0.16g • 100% O₂)",
-            "MARS": "🔴 Mars Transit (0.38g • 26% O₂)",
-            "EARTH": "🌍 Earth Baseline (1.0g • 21% O₂)",
-            "CUSTOM": "⚙️ Custom Parameters (85-100% O₂)"
+            "ISS": "🛰️ ISS Station (0.0g • 21% O₂ • 101.3 kPa)",
+            "LUNAR_ROVER": "🚜 Moon Base / Rover (0.16g • 30% O₂ • 70.3 kPa)",
+            "ARTEMIS": "🌙 Artemis Cabin (0.16g • 34% O₂ • 56.5 kPa)",
+            "SPACESUIT": "👨‍🚀 EVA Suit (0.16g • 100% O₂ • 29.6 kPa)",
+            "MARS": "🔴 Mars Transit (0.38g • 26% O₂ • 70.0 kPa)",
+            "EARTH": "🌍 Earth Baseline (1.0g • 21% O₂ • 101.3 kPa)",
+            "CUSTOM": "⚙️ Custom Parameters (Full CFD Range)"
         }
     }
 
@@ -2453,19 +2487,19 @@ with st.sidebar:
         with st.container(border=True, key=f"telemetry_card_{key}"):
             render_html(f'''
             <div class="ctrl-card-top">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 3px;">
-                    <span style="font-weight: 700; font-size: 0.80rem; color: #FFFFFF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; margin-bottom: 4px;">
+                    <span style="font-weight: 700; font-size: 0.78rem; color: #FFFFFF; line-height: 1.28; flex: 1 1 auto; word-break: break-word;">
                         {icon} {label}
                     </span>
-                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; font-weight: 800; color: #00F2FF; background: rgba(0, 242, 255, 0.12); border: 1px solid rgba(0, 242, 255, 0.38); padding: 2px 7px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; font-weight: 800; color: #00F2FF; background: rgba(0, 242, 255, 0.12); border: 1px solid rgba(0, 242, 255, 0.38); padding: 2px 7px; border-radius: 6px; white-space: nowrap; flex: 0 0 auto;">
                         {val_str}
                     </span>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-                    <span style="font-size: 0.66rem; font-weight: 700; color: {badge_col}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 6px;">
+                    <span style="font-size: 0.66rem; font-weight: 700; color: {badge_col}; line-height: 1.25; word-break: break-word; flex: 1 1 auto;">
                         {badge_txt}
                     </span>
-                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.63rem; color: #94A3B8; font-weight: 600; white-space: nowrap; flex-shrink: 0;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.63rem; color: #94A3B8; font-weight: 600; white-space: nowrap; flex: 0 0 auto;">
                         {sub_str}
                     </span>
                 </div>
@@ -2615,7 +2649,7 @@ with st.sidebar:
             <div style="font-size: 0.78rem; color: #CBD5E1; line-height: 1.55;">
                 <b style="color: #64748B;">Team Lead & Architect:</b> Vũ Bảo Nam<br>
                 <b style="color: #64748B;">Members:</b> Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh<br>
-                <b style="color: #64748B;">Lab / Team:</b> Bebo AstroX • VBN Lab<br>
+                <b style="color: #64748B;">Team:</b> Bebo ZeroG-X<br>
                 <b style="color: #64748B;">Institution:</b> THPT FPT (FPT High School)
             </div>
         </div>
@@ -3541,7 +3575,8 @@ with tab_sim:
             format_func=lambda mid: mat_boundary_map.get(mid, mid),
             key="boundary_mat_selector"
         )
-        sel_boundary_mat = materials_df[materials_df["material_id"] == selected_b_id].iloc[0]
+        matching_mat = materials_df[materials_df["material_id"] == selected_b_id]
+        sel_boundary_mat = matching_mat.iloc[0] if not matching_mat.empty else materials_df.iloc[0]
         selected_boundary_mat_name = sel_boundary_mat["material_name"]
 
         v_pts, moc_pts = calculate_cached_boundary_sweep(
@@ -3660,7 +3695,7 @@ with tab_sim:
             margin=dict(t=25, b=55, l=55, r=40)
         )
         fig_boundary.add_annotation(
-            text="© 2026 Bebo AstroX Team (Vu Bao Nam, Do Duy Nam, Luong Duc Tung, Trinh Duc Anh) | NASA Space Apps",
+            text="© 2026 Bebo ZeroG-X Team (Vu Bao Nam, Do Duy Nam, Luong Duc Tung, Trinh Duc Anh) | NASA Space Apps",
             xref="paper", yref="paper",
             x=1.0, y=-0.22,
             showarrow=False,
@@ -4283,7 +4318,7 @@ with tab_morph:
                     margin=dict(t=20, b=40, l=55, r=40)
                 )
                 fig_contour.add_annotation(
-                    text="© 2026 Bebo AstroX • NASA PSI",
+                    text="© 2026 Bebo ZeroG-X • NASA PSI",
                     xref="paper", yref="paper",
                     x=1.0, y=-0.18,
                     showarrow=False,
@@ -4944,7 +4979,8 @@ with tab_rag:
             index=0,
             key="copilot_material_select"
         )
-        target_copilot_res = results_df[results_df["material_name"] == selected_copilot_mat_name].iloc[0]
+        matching_copilot = results_df[results_df["material_name"] == selected_copilot_mat_name]
+        target_copilot_res = matching_copilot.iloc[0] if not matching_copilot.empty else results_df.iloc[0]
         target_copilot_mat = target_copilot_res["raw_mat"]
 
         cp_name = target_copilot_mat.get('material_name_vi', target_copilot_mat['material_name']) if lang == "vi" else target_copilot_mat['material_name']
@@ -5254,7 +5290,7 @@ with tab_matrix:
 
     report_payload = {
         "report_id": f"NASA-CRISIS-{int(time.time())}",
-        "author_attribution": "Vu Bao Nam (Lead), Do Duy Nam, Luong Duc Tung, Trinh Duc Anh | Bebo AstroX • VBN Lab (FPT High School)",
+        "author_attribution": "Vu Bao Nam (Lead), Do Duy Nam, Luong Duc Tung, Trinh Duc Anh | Bebo ZeroG-X (FPT High School)",
         "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "language": lang,
         "cabin_environment": cabin_state,
@@ -5276,7 +5312,7 @@ with tab_matrix:
     if lang == "vi":
         md_brief = f"""# Bản Tóm Tắt Kỹ Thuật Ma Trận Ứng Phó Khẩn Cấp NASA
 **Mã Báo cáo:** {report_payload['report_id']} | **Thời gian:** {report_payload['timestamp_utc']}
-**Đội ngũ Tác giả:** Vũ Bảo Nam (Lead), Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh | Bebo AstroX • VBN Lab (THPT FPT)
+**Đội ngũ Tác giả:** Vũ Bảo Nam (Lead), Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh | Bebo ZeroG-X (THPT FPT)
 **Môi trường Khoang:** g={cabin_state['gravity_g']}g, O2={cabin_state['oxygen_pct']}%, P={cabin_state['pressure_kpa']} kPa, V={cabin_state['airflow_cm_s']} cm/s
 
 ## Danh mục Vật liệu Nguy cơ Cao ({len(red_risk_materials)}):
@@ -5291,7 +5327,7 @@ with tab_matrix:
     else:
         md_brief = f"""# NASA Spacecraft Fire Emergency Matrix Briefing
 **Report ID:** {report_payload['report_id']} | **Date:** {report_payload['timestamp_utc']}
-**Authors & Development Team:** Vu Bao Nam (Lead), Do Duy Nam, Luong Duc Tung, Trinh Duc Anh | Bebo AstroX • VBN Lab (FPT High School)
+**Authors & Development Team:** Vu Bao Nam (Lead), Do Duy Nam, Luong Duc Tung, Trinh Duc Anh | Bebo ZeroG-X (FPT High School)
 **Environment:** g={cabin_state['gravity_g']}g, O2={cabin_state['oxygen_pct']}%, P={cabin_state['pressure_kpa']} kPa, V={cabin_state['airflow_cm_s']} cm/s
 
 ## Critical Threat Materials ({len(red_risk_materials)}):
@@ -5359,7 +5395,7 @@ with tab_matrix:
             </div>
             {items_preview_html}
             <div style="font-size: 0.72rem; color: #38BDF8; font-family: 'JetBrains Mono', monospace; margin-top: 12px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.18);">
-                <b>AUTHORS & TEAM:</b> Vũ Bảo Nam (Lead), Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh | Bebo AstroX • VBN Lab (THPT FPT)
+                <b>AUTHORS & TEAM:</b> Vũ Bảo Nam (Lead), Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh | Bebo ZeroG-X (THPT FPT)
             </div>
         </div>
         """
@@ -5498,7 +5534,7 @@ render_html(f"""
         <div style="font-size: 0.80rem; color: #CBD5E1; line-height: 1.6;">
             <b style="color: #94A3B8;">Lead Architect:</b> Vũ Bảo Nam &nbsp;•&nbsp; 
             <b style="color: #94A3B8;">Team Members:</b> Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh<br>
-            <b style="color: #94A3B8;">Lab:</b> Bebo AstroX • VBN Lab &nbsp;•&nbsp; 
+            <b style="color: #94A3B8;">Team:</b> Bebo ZeroG-X &nbsp;•&nbsp; 
             <b style="color: #94A3B8;">Institution:</b> THPT FPT (FPT High School)
         </div>
         <div style="font-size: 0.72rem; color: #64748B; font-family: 'JetBrains Mono', monospace;">

@@ -1,15 +1,15 @@
 # Flames in Freefall: SI-Powered Spacecraft Fire Safety Dashboard
 ### NASA Space Apps Challenge 2026 - Aerospace Microgravity Combustion Intelligence
 **Team Lead & Architect:** Vũ Bảo Nam (Vu Bao Nam) | **Team Members:** Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh  
-**Research Lab:** Bebo AstroX • VBN Lab (THPT FPT) | **Core Combustion Engine:** `Bebo Ignis-0G` Microgravity Combustion Physics & RAG Engine
+**Team:** Bebo ZeroG-X (THPT FPT) | **Core Combustion Engine:** `Bebo Ignis-0G` Microgravity Combustion Physics & RAG Engine
 
----
+   ---
 
-An expert-grade interactive Mission Control safety platform built with **Streamlit** and **Plotly** to evaluate, rank, and simulate fire behavior in extreme spaceflight environments (ISS, Lunar Artemis Habitat, Mars Transit) using real NASA Physical Sciences Informatics (PSI) research datasets (SoFIE, Saffire, BASS-II, FLEX-2).
+   An expert-grade interactive Mission Control safety platform built with **Streamlit** and **Plotly** to evaluate, rank, and simulate fire behavior in extreme spaceflight environments (ISS, Lunar Artemis Habitat, Mars Transit) using real NASA Physical Sciences Informatics (PSI) research datasets (SoFIE, Saffire, BASS-II, FLEX-2).
 
----
+   ---
 
-## 👨‍🚀 Team & Author Attribution
+   ## 👨‍🚀 Team & Author Attribution
 
 - **Project Lead & System Architect:** Vũ Bảo Nam (Vu Bao Nam)
 - **Team Members:**
@@ -17,41 +17,41 @@ An expert-grade interactive Mission Control safety platform built with **Streaml
   - **Đỗ Duy Nam** — Microgravity Combustion Data & Physics Analytics
   - **Lương Đức Tùng** — Non-linear Flame Spread Kinetics & CFD Modeling
   - **Trịnh Đức Anh** — Aerospace UI/UX Design & Mission Documentation
-- **Research Lab / Team:** Bebo AstroX • VBN Lab
+- **Team:** Bebo ZeroG-X
 - **Institution:** Trường THPT FPT (FPT High School)
 - **Project Topic:** *Flames in Freefall: SI-Powered Fire Safety Insights from Microgravity Combustion Data*
 - **Competition:** Official Entry for **NASA Space Apps Challenge 2026**
 - **Core Engine:** **Bebo Ignis-0G** Microgravity Combustion Physics & RAG Vector Space Engine
 
----
+   ---
 
-## 🖥️ Live Demo & Preview
+   ## 🖥️ Live Demo & Preview
 
-- 🌐 **Live Web Application:** [Launch Flames in Freefall Dashboard](https://flames-in-freefall.streamlit.app/) *(Placeholder / Streamlit Community Cloud)*
-- 🎬 **2-Minute Video Pitch & Walkthrough:** [Watch Official Video Pitch](https://github.com/baonam-fpt/flames-in-freefall#readme) • *Bebo AstroX Team*
-- 🛰️ **NASA Space Apps Challenge Entry:** [Official Project Submission Page](https://www.spaceappschallenge.org/2026/find-a-team/flames-in-freefall/) *(Placeholder)*
+   - 🌐 **Live Web Application:** [Launch Flames in Freefall Dashboard](https://flames-in-freefall.streamlit.app/) *(Placeholder / Streamlit Community Cloud)*
+   - 🎬 **2-Minute Video Pitch & Walkthrough:** [Watch Official Video Pitch](https://github.com/baonam-fpt/flames-in-freefall#readme) • *Bebo ZeroG-X Team*
+   - 🛰️ **NASA Space Apps Challenge Entry:** [Official Project Submission Page](https://www.spaceappschallenge.org/2026/find-a-team/flames-in-freefall/) *(Placeholder)*
 
----
+   ---
 
-## 📂 Project Architecture
+   ## 📂 Project Architecture
 
-```text
-flames-in-freefall/
-│
-├── app.py                             # Core Streamlit application (NASA.gov WDS design, Bebo Ignis-0G Engine, RAG, Visualizers)
-├── i18n.py                            # Bilingual internationalization dictionary (vi/en) & emergency suppression database
-├── requirements.txt                   # Production Python package dependencies
-├── README.md                          # Engineering documentation & quickstart guide
-│
-└── data/                              # NASA Physical Sciences Informatics (PSI) experimental datasets
-    ├── sofie_pmma_burn_rates.csv      # NASA SoFIE microgravity PMMA rod burn rate & airflow data
-    ├── saffire_pressure_oxygen.csv    # NASA Saffire large-scale fabric burns in Cygnus resupply craft
-    └── bass_extinction_limits.csv     # NASA BASS-II & FLEX extinction boundaries & LOI measurements
-```
+   ```text
+   flames-in-freefall/
+   │
+   ├── app.py                             # Core Streamlit application (NASA.gov WDS design, Bebo Ignis-0G Engine, RAG, Visualizers)
+   ├── i18n.py                            # Bilingual internationalization dictionary (vi/en) & emergency suppression database
+   ├── requirements.txt                   # Production Python package dependencies
+   ├── README.md                          # Engineering documentation & quickstart guide
+   │
+   └── data/                              # NASA Physical Sciences Informatics (PSI) experimental datasets
+      ├── sofie_pmma_burn_rates.csv      # NASA SoFIE microgravity PMMA rod burn rate & airflow data
+      ├── saffire_pressure_oxygen.csv    # NASA Saffire large-scale fabric burns in Cygnus resupply craft
+      └── bass_extinction_limits.csv     # NASA BASS-II & FLEX extinction boundaries & LOI measurements
+   ```
 
----
+   ---
 
-## 🚀 Key Highlights & Physics Features
+   ## 🚀 Key Highlights & Physics Features
 
 1. **Space Fire Risk Score (SFRS, 0-100)**:
    - Evaluates non-linear microgravity combustion behavior where low-velocity ventilation ($5-20\text{ cm/s}$) eliminates natural buoyant heat loss while continuously feeding fresh oxidizer, making materials ignite at **lower oxygen concentrations (MOC)** than on Earth ($1.0g$).
@@ -68,85 +68,85 @@ flames-in-freefall/
    - **Offline Deterministic Expert System**: Instantaneous aerospace combustion physics reasoning answering why a material is hazardous, design alternatives (NASA-STD-6001B), and emergency HVAC/suppression actions.
    - **Online LLM Bridge**: Supports Gemini API (upgraded to `gemini-2.5-flash`) or OpenAI API key for extended live mission briefings.
 6. **Mission Safety Briefing & Digital Attribution Export**:
-   - One-click generation of print-ready technical briefing sheets, downloadable Markdown dossiers, and `.json` telemetry exports signed with author attribution (`Vu Bao Nam | Bebo AstroX • VBN Lab`).
+   - One-click generation of print-ready technical briefing sheets, downloadable Markdown dossiers, and `.json` telemetry exports signed with author attribution (`Vu Bao Nam & Team | Bebo ZeroG-X`).
 7. **Academic Literature & PSI Citations**:
    - Cross-linked with original peer-reviewed papers, Experiment IDs, and Principal Investigators (Urban, Olson, Ferketič, T'ien, Williams).
 
----
+   ---
 
-## 🌟 Advanced Aerospace Modules
+   ## 🌟 Advanced Aerospace Modules
 
-### 🤖 1. Battle-Tested RAG & Semantic Vector Search ("Ask NASA PSI Docs")
-- **High-Dimensional Vector Search Engine:** Hybrid TF-IDF and normalized cosine similarity search indexing 14 official NASA technical reports (NASA/TM, NASA/CR, NASA-STD-6001B) with sub-4ms retrieval latency.
-- **Precision Evidence Extraction:** Freeform semantic queries in Vietnamese and English (e.g., *"Điều gì xảy ra với tốc độ cháy của nhựa PMMA dưới luồng gió thông gió thấp trong vi trọng lực?"*) return exact excerpts, match confidence scores (%), official report numbers, sections, page citations, and PIs.
-- **Synthesized Flight Safety Advisory:** Generates grounded answers formulating technical safety guidance based directly on flight-proven data.
+   ### 🤖 1. Battle-Tested RAG & Semantic Vector Search ("Ask NASA PSI Docs")
+   - **High-Dimensional Vector Search Engine:** Hybrid TF-IDF and normalized cosine similarity search indexing 14 official NASA technical reports (NASA/TM, NASA/CR, NASA-STD-6001B) with sub-4ms retrieval latency.
+   - **Precision Evidence Extraction:** Freeform semantic queries in Vietnamese and English (e.g., *"Điều gì xảy ra với tốc độ cháy của nhựa PMMA dưới luồng gió thông gió thấp trong vi trọng lực?"*) return exact excerpts, match confidence scores (%), official report numbers, sections, page citations, and PIs.
+   - **Synthesized Flight Safety Advisory:** Generates grounded answers formulating technical safety guidance based directly on flight-proven data.
 
-### 🔥 2. Dynamic Flame Morphology Visualizer
-- **Morphological Geometry Transition:**
-  - **Earth ($1.0g$):** Elongated buoyant teardrop plume ($L/W \approx 3.2$, $T \approx 1850\text{ K}$) radiating bright yellow-orange soot.
-  - **Space Station ($0.0g$):** Perfectly symmetric pure blue spherical diffusion shell ($L/W \approx 1.0$, $T \approx 1380\text{ K}$) driven entirely by 3D molecular diffusion with zero soot.
-  - **Moon/Mars ($0.16g - 0.38g$):** **Hazardous expanding hemispherical dome** ($L/W \approx 0.65 - 0.85$, $T \approx 1600\text{ K}$) flaring laterally into a 240% broader contact area with surrounding spacecraft structures.
-- **Telemetry & Contours:** Live calculation of Grashof ($Gr$), Richardson ($Ri$), Peclet ($Pe$) numbers, coupled with interactive SVG cross-sections and Plotly 2D thermal field maps.
+   ### 🔥 2. Dynamic Flame Morphology Visualizer
+   - **Morphological Geometry Transition:**
+   - **Earth ($1.0g$):** Elongated buoyant teardrop plume ($L/W \approx 3.2$, $T \approx 1850\text{ K}$) radiating bright yellow-orange soot.
+   - **Space Station ($0.0g$):** Perfectly symmetric pure blue spherical diffusion shell ($L/W \approx 1.0$, $T \approx 1380\text{ K}$) driven entirely by 3D molecular diffusion with zero soot.
+   - **Moon/Mars ($0.16g - 0.38g$):** **Hazardous expanding hemispherical dome** ($L/W \approx 0.65 - 0.85$, $T \approx 1600\text{ K}$) flaring laterally into a 240% broader contact area with surrounding spacecraft structures.
+   - **Telemetry & Contours:** Live calculation of Grashof ($Gr$), Richardson ($Ri$), Peclet ($Pe$) numbers, coupled with interactive SVG cross-sections and Plotly 2D thermal field maps.
 
-### 🚨 3. Automated Emergency Suppression & Mitigation Matrix
-- **3-Column Technical Recommendation Table** dynamically generated for all Critical & High-risk flight materials:
-  1. **Immediate Emergency Action (T+0s to T+3s):** Rapid HVAC fan isolation to starve forced convection and induce radiative quenching.
-  2. **Optimal Suppression Agent:** Fine Water Mist ($< 50\ \mu\text{m}$) propelled by $N_2$ or Total Flooding $CO_2$; **STRICTLY PROHIBITS single high-velocity water jets** to prevent hydrodynamic shattering of burning molten polymers.
-  3. **Secondary Life-Support Hazards & Toxicity:** Off-gassing analysis ($CO$, $HF$, siloxanes, aerosolized glass fibers) and mandatory astronaut positive-pressure breathing equipment (PBE/SCBA) duration.
-- **Dual-Pane Export Hub:** Left pane provides machine-readable JSON & Markdown exports with author digital signature; right pane renders print-ready `.briefing-sheet` dossier.
+   ### 🚨 3. Automated Emergency Suppression & Mitigation Matrix
+   - **3-Column Technical Recommendation Table** dynamically generated for all Critical & High-risk flight materials:
+   1. **Immediate Emergency Action (T+0s to T+3s):** Rapid HVAC fan isolation to starve forced convection and induce radiative quenching.
+   2. **Optimal Suppression Agent:** Fine Water Mist ($< 50\ \mu\text{m}$) propelled by $N_2$ or Total Flooding $CO_2$; **STRICTLY PROHIBITS single high-velocity water jets** to prevent hydrodynamic shattering of burning molten polymers.
+   3. **Secondary Life-Support Hazards & Toxicity:** Off-gassing analysis ($CO$, $HF$, siloxanes, aerosolized glass fibers) and mandatory astronaut positive-pressure breathing equipment (PBE/SCBA) duration.
+   - **Dual-Pane Export Hub:** Left pane provides machine-readable JSON & Markdown exports with author digital signature; right pane renders print-ready `.briefing-sheet` dossier.
 
----
+   ---
 
-## 🛠️ Installation & Quickstart
+   ## 🛠️ Installation & Quickstart
 
-### Prerequisites
-- Python 3.10+ (Python 3.11 or 3.12 recommended)
-- Git
+   ### Prerequisites
+   - Python 3.10+ (Python 3.11 or 3.12 recommended)
+   - Git
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/baonam-fpt/flames-in-freefall.git
-cd flames-in-freefall
-```
+   ### 1. Clone the Repository
+   ```bash
+   git clone https://github.com/baonam-fpt/flames-in-freefall.git
+   cd flames-in-freefall
+   ```
 
-### 2. Set Up Virtual Environment
+   ### 2. Set Up Virtual Environment
 
-#### Option A: Using `uv` (Recommended - Ultra Fast)
-```bash
-# Create virtual environment
-uv venv .venv
+   #### Option A: Using `uv` (Recommended - Ultra Fast)
+   ```bash
+   # Create virtual environment
+   uv venv .venv
 
-# Activate environment
-# On Windows:
-.venv\Scripts\activate
-# On macOS / Linux:
-source .venv/bin/activate
+   # Activate environment
+   # On Windows:
+   .venv\Scripts\activate
+   # On macOS / Linux:
+   source .venv/bin/activate
 
-# Install dependencies
-uv pip install -r requirements.txt
-```
+   # Install dependencies
+   uv pip install -r requirements.txt
+   ```
 
-#### Option B: Using standard Python `venv` and `pip`
-```bash
-# Create virtual environment
-python -m venv .venv
+   #### Option B: Using standard Python `venv` and `pip`
+   ```bash
+   # Create virtual environment
+   python -m venv .venv
 
-# Activate environment
-# On Windows:
-.venv\Scripts\activate
-# On macOS / Linux:
-source .venv/bin/activate
+   # Activate environment
+   # On Windows:
+   .venv\Scripts\activate
+   # On macOS / Linux:
+   source .venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
-```
+   # Install dependencies
+   pip install -r requirements.txt
+   ```
 
-### 3. Launch the Application
-```bash
-streamlit run app.py
-```
+   ### 3. Launch the Application
+   ```bash
+   streamlit run app.py
+   ```
 
-The Mission Control dashboard will automatically open in your default browser at:
+   The Mission Control dashboard will automatically open in your default browser at:
 ```text
 http://localhost:8501
 ```
@@ -166,8 +166,13 @@ http://localhost:8501
 ## 👥 Project & Team Credits
 
 - **Challenge Topic:** *Flames in Freefall: SI-Powered Fire Safety Insights from Microgravity Combustion Data*
-- **Team / Lab:** Bebo AstroX • VBN Lab
-- **System Architect & Lead Developer:** Vũ Bảo Nam (Vu Bao Nam)
+- **Team:** Bebo ZeroG-X
+- **Project Lead & System Architect:** Vũ Bảo Nam (Vu Bao Nam)
+- **Team Members:**
+  - **Vũ Bảo Nam** — Team Lead, System Architecture & Full-stack Engineering
+  - **Đỗ Duy Nam** — Microgravity Combustion Data & Physics Analytics
+  - **Lương Đức Tùng** — Non-linear Flame Spread Kinetics & CFD Modeling
+  - **Trịnh Đức Anh** — Aerospace UI/UX Design & Mission Documentation
 - **School / Institution:** THPT FPT (FPT High School)
 - **Design System:** Official NASA.gov Digital Design System with Modern Cyber-Glass Aesthetic (`Plus Jakarta Sans`, `Inter`, `JetBrains Mono`, NASA Blue `#0B3D91`, Cyan `#00F2FF`, NASA Red `#E03C31`)
 - **License:** Open Source under the MIT License.
