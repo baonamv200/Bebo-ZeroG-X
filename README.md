@@ -28,8 +28,6 @@
    ## 🖥️ Live Demo & Preview
 
    - 🌐 **Live Web Application:** [Launch Flames in Freefall Dashboard](https://beboignis-0g.streamlit.app/) *(Official Deployment on Streamlit Community Cloud)*
-   - 🎬 **2-Minute Video Pitch & Walkthrough:** [Watch Official Video Pitch](https://github.com/baonam-fpt/flames-in-freefall#readme) • *Bebo ZeroG-X Team*
-   - 🛰️ **NASA Space Apps Challenge Entry:** [Official Project Submission Page](https://www.spaceappschallenge.org/2026/find-a-team/flames-in-freefall/) *(Placeholder)*
 
    ---
 
