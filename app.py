@@ -521,7 +521,8 @@ render_html("""
         color: #CBD5E1 !important;
         margin: 0 !important;
         line-height: 1.35 !important;
-        white-space: nowrap !important;
+        white-space: normal !important;
+        word-break: break-word !important;
     }
     section[data-testid="stSidebar"] div[data-testid="stRadio"] label[data-selected="true"] p,
     section[data-testid="stSidebar"] div[data-testid="stRadio"] label:has(input:checked) p {
