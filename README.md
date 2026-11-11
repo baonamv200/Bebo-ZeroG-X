@@ -1,7 +1,9 @@
 # Flames in Freefall: SI-Powered Spacecraft Fire Safety Dashboard
 ### NASA Space Apps Challenge 2026 - Aerospace Microgravity Combustion Intelligence
-**Team Lead & Architect:** Vũ Bảo Nam (Vu Bao Nam) | **Team Members:** Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh  
-**Team:** Bebo ZeroG-X (THPT FPT) | **Core Combustion Engine:** `Bebo Ignis-0G` Microgravity Combustion Physics & RAG Engine
+**Team:** Bebo ZeroG-X | **Institution:** Trường THPT FPT (FPT High School)  
+**Team Lead & System Architect:** Vũ Bảo Nam (Vu Bao Nam)  
+**Members:** Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh  
+**Core Combustion Engine:** `Bebo Ignis-0G` Microgravity Combustion Physics & RAG Engine
 
    ---
 
@@ -11,13 +13,13 @@
 
    ## 👨‍🚀 Team & Author Attribution
 
-- **Project Lead & System Architect:** Vũ Bảo Nam (Vu Bao Nam)
+- **Team Name:** Bebo ZeroG-X
+- **Team Lead & System Architect:** Vũ Bảo Nam (Vu Bao Nam)
 - **Team Members:**
   - **Vũ Bảo Nam** — Team Lead, System Architecture & Full-stack Engineering
   - **Đỗ Duy Nam** — Microgravity Combustion Data & Physics Analytics
   - **Lương Đức Tùng** — Non-linear Flame Spread Kinetics & CFD Modeling
   - **Trịnh Đức Anh** — Aerospace UI/UX Design & Mission Documentation
-- **Team:** Bebo ZeroG-X
 - **Institution:** Trường THPT FPT (FPT High School)
 - **Project Topic:** *Flames in Freefall: SI-Powered Fire Safety Insights from Microgravity Combustion Data*
 - **Competition:** Official Entry for **NASA Space Apps Challenge 2026**
@@ -27,7 +29,9 @@
 
    ## 🖥️ Live Demo & Preview
 
-   - 🌐 **Live Web Application:** [Launch Flames in Freefall Dashboard](https://beboignis-0g.streamlit.app/) *(Official Deployment on Streamlit Community Cloud)*
+- 🌐 **Live Web Application:** [Launch Flames in Freefall Dashboard](https://beboignis-0g.streamlit.app/) *(Official Deployment on Streamlit Community Cloud)*
+- 🎬 **2-Minute Video Pitch & Walkthrough:** [Watch Official Video Pitch](https://github.com/baonamv200/nasa#readme) • *Bebo ZeroG-X Team*
+- 🛰️ **NASA Space Apps Challenge Entry:** [Official Project Submission Dossier](NASA_SPACE_APPS_SUBMISSION.md) • *Bebo ZeroG-X*
 
    ---
 
@@ -66,7 +70,7 @@
    - **Offline Deterministic Expert System**: Instantaneous aerospace combustion physics reasoning answering why a material is hazardous, design alternatives (NASA-STD-6001B), and emergency HVAC/suppression actions.
    - **Online LLM Bridge**: Supports Gemini API (upgraded to `gemini-2.5-flash`) or OpenAI API key for extended live mission briefings.
 6. **Mission Safety Briefing & Digital Attribution Export**:
-   - One-click generation of print-ready technical briefing sheets, downloadable Markdown dossiers, and `.json` telemetry exports signed with author attribution (`Vu Bao Nam & Team | Bebo ZeroG-X`).
+   - One-click generation of print-ready technical briefing sheets, downloadable Markdown dossiers, and `.json` telemetry exports signed with team attribution (`Bebo ZeroG-X | Vũ Bảo Nam, Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh`).
 7. **Academic Literature & PSI Citations**:
    - Cross-linked with original peer-reviewed papers, Experiment IDs, and Principal Investigators (Urban, Olson, Ferketič, T'ien, Williams).
 
@@ -165,7 +169,7 @@ http://localhost:8501
 
 - **Challenge Topic:** *Flames in Freefall: SI-Powered Fire Safety Insights from Microgravity Combustion Data*
 - **Team:** Bebo ZeroG-X
-- **Project Lead & System Architect:** Vũ Bảo Nam (Vu Bao Nam)
+- **Team Lead & Architect:** Vũ Bảo Nam (Vu Bao Nam)
 - **Team Members:**
   - **Vũ Bảo Nam** — Team Lead, System Architecture & Full-stack Engineering
   - **Đỗ Duy Nam** — Microgravity Combustion Data & Physics Analytics

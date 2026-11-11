@@ -1,0 +1,112 @@
+<section id="architecture" data-transition="fade" style="background:#040816;color:#f8fafc;font-family:'Plus Jakarta Sans',sans-serif;padding:80px 128px;display:flex;flex-direction:column;justify-content:space-between;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <p style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#00f2ff">// 05. KIẾN TRÚC HỆ THỐNG</p>
+      <p style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#94a3b8">SLIDE [06/08]</p>
+    </div>
+    <h2 style="font-size:56px;font-weight:800;color:#ffffff;line-height:1.15">
+      Luồng Hoạt Động Toàn Diện Từ Dữ Liệu Đến Phản Ứng Khẩn Cấp
+    </h2>
+  </div>
+
+  <!-- 4-Stage Horizontal Flow -->
+  <div style="display:flex;gap:20px;align-items:stretch">
+    <!-- Stage 1 -->
+    <div style="flex:1;background:rgba(14,27,56,0.85);border:1px solid #1e3a6e;border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#00f2ff;font-weight:700">TẦNG 01</p>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#94a3b8">INGESTION</p>
+      </div>
+      <h3 style="font-size:24px;font-weight:800;color:#ffffff">Dữ Liệu NASA PSI</h3>
+      <p style="font-size:20px;color:#cbd5e1;line-height:1.4">
+        • SoFIE PMMA<br>
+        • Saffire Cygnus<br>
+        • BASS-II Extinction<br>
+        • 14 NASA TM/CR Reports
+      </p>
+    </div>
+
+    <!-- Arrow 1 -->
+    <div style="display:flex;align-items:center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-label="Arrow 1">
+        <path d="M5 12 L19 12 M13 6 L19 12 L13 18" stroke="#00f2ff" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <!-- Stage 2 -->
+    <div style="flex:1;background:rgba(14,27,56,0.85);border:1px solid #00f2ff;border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#00f2ff;font-weight:700">TẦNG 02</p>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#94a3b8">PHYSICS</p>
+      </div>
+      <h3 style="font-size:24px;font-weight:800;color:#00f2ff">Bebo Ignis-0G</h3>
+      <p style="font-size:20px;color:#cbd5e1;line-height:1.4">
+        • Giải MOC vi trọng lực<br>
+        • Grashof &amp; Richardson<br>
+        • Điểm nguy cơ SFRS<br>
+        • Phát hiện ngọn lửa lạnh
+      </p>
+    </div>
+
+    <!-- Arrow 2 -->
+    <div style="display:flex;align-items:center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-label="Arrow 2">
+        <path d="M5 12 L19 12 M13 6 L19 12 L13 18" stroke="#00f2ff" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <!-- Stage 3 -->
+    <div style="flex:1;background:rgba(14,27,56,0.85);border:1px solid #1e3a6e;border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#00f2ff;font-weight:700">TẦNG 03</p>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#94a3b8">AI RAG</p>
+      </div>
+      <h3 style="font-size:24px;font-weight:800;color:#ffffff">NASA Vector DB</h3>
+      <p style="font-size:20px;color:#cbd5e1;line-height:1.4">
+        • Vector TF-IDF Cosine<br>
+        • Trích dẫn trang &amp; tác giả<br>
+        • Cầu nối Gemini / OpenAI<br>
+        • Tạo khuyến nghị dập lửa
+      </p>
+    </div>
+
+    <!-- Arrow 3 -->
+    <div style="display:flex;align-items:center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-label="Arrow 3">
+        <path d="M5 12 L19 12 M13 6 L19 12 L13 18" stroke="#00f2ff" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <!-- Stage 4 -->
+    <div style="flex:1;background:rgba(14,27,56,0.85);border:1px solid #1e3a6e;border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#00f2ff;font-weight:700">TẦNG 04</p>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#94a3b8">UI/UX</p>
+      </div>
+      <h3 style="font-size:24px;font-weight:800;color:#ffffff">Mission Control</h3>
+      <p style="font-size:20px;color:#cbd5e1;line-height:1.4">
+        • Streamlit Cloud Web App<br>
+        • Đồ thị Plotly 3D nhiệt độ<br>
+        • Xuất Dossier Markdown/JSON<br>
+        • Chữ ký số Vũ Bảo Nam
+      </p>
+    </div>
+  </div>
+
+  <!-- Emergency Protocol Callout -->
+  <div style="background:rgba(30,12,20,0.9);border:1px solid #e03c31;border-radius:18px;padding:20px 28px;display:flex;align-items:center;gap:24px">
+    <div style="background:#e03c31;padding:10px 18px;border-radius:10px;white-space:nowrap">
+      <p style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800;color:#ffffff">EMERGENCY PROTOCOL</p>
+    </div>
+    <div style="flex:1">
+      <p style="font-size:22px;color:#ffffff;line-height:1.4">
+        <strong>1. T+0s:</strong> Ngắt ngay quạt gió (HVAC Isolation) để triệt tiêu đối lưu cưỡng bức.<br>
+        <strong>2. Tuyệt đối cấm:</strong> Tia nước áp lực cao (tránh văng polyme nóng chảy).<br>
+        <strong>3. Dập lửa chuẩn:</strong> Phun sương nước siêu mịn (&lt; 50 µm) hoặc xả ngập khí CO₂.
+      </p>
+    </div>
+  </div>
+
+  <aside>Về mặt kiến trúc, dự án vận hành theo một luồng xử lý 4 tầng khép kín: Dữ liệu thô từ NASA được đưa vào động cơ Bebo Ignis-0G để giải các phương trình nhiệt động học; kết quả được đối chiếu qua Vector Database tài liệu và hiển thị trực quan lên giao diện Streamlit Cloud, sẵn sàng xuất báo cáo nhiệm vụ cho phi hành đoàn.</aside>
+</section>
+

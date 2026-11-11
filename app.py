@@ -2650,7 +2650,9 @@ with st.sidebar:
             <div style="font-size: 0.78rem; color: #CBD5E1; line-height: 1.55;">
                 <b style="color: #64748B;">Team Lead & Architect:</b> Vũ Bảo Nam<br>
                 <b style="color: #64748B;">Members:</b> Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh<br>
-                <b style="color: #64748B;">Team:</b> Bebo ZeroG-X<br>
+                <b style="color: #64748B;">Team Lead & Architect:</b> Vũ Bảo Nam<br>
+                <b style="color: #64748B;">Members:</b> Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh<br>
+                <b style="color: #64748B;">Lab / Team:</b> Bebo ZeroG-X<br>
                 <b style="color: #64748B;">Institution:</b> THPT FPT (FPT High School)
             </div>
         </div>
