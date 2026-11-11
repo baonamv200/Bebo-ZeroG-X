@@ -192,16 +192,13 @@ class PhysicsEngineStressTest(unittest.TestCase):
 
     def test_negative_gravity_edge_case_vulnerability(self):
         """
-        EMPIRICAL FINDING:
-        In calculate_effective_moc (app.py, line 859):
-            g_factor = np.clip(np.sqrt(gravity_g), 0.0, 1.0)
-        While line 845 correctly wraps gravity: v_buoyant = 25.0 * np.sqrt(max(0.0, gravity_g)),
-        line 859 omits max(0.0, ...). Consequently, passing negative gravity results in
-        np.sqrt(negative) -> RuntimeWarning -> NaN -> effective_moc becomes NaN.
+        DEFENSE VERIFICATION:
+        Negative gravity is safely clamped to degenerate floor 0.0g via max(0.0, float(gravity_g)).
+        No RuntimeWarning, no NaN.
         """
         moc_neg = MicrogravityCombustionPhysics.calculate_effective_moc(self.pmma, -0.1, 10.0, 101.3)
-        # Empirically verify that this yields NaN
-        self.assertTrue(math.isnan(moc_neg), "Empirical observation: app.py:859 yields NaN on negative gravity")
+        self.assertTrue(math.isfinite(moc_neg), "Negative gravity should be safely clamped to 0g degenerate floor")
+        self.assertEqual(moc_neg, MicrogravityCombustionPhysics.calculate_effective_moc(self.pmma, 0.0, 10.0, 101.3))
 
     def test_cool_flames_boundary(self):
         """Stress-test cool flames anomaly detection boundary logic."""

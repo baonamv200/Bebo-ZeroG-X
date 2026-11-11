@@ -910,7 +910,7 @@ class MicrogravityCombustionPhysics:
         p_ratio = max(0.1, pressure_kpa / 101.3)
         delta_pressure = 1.8 * (1.0 - (p_ratio)**0.35)
         
-        g_factor = np.clip(np.sqrt(gravity_g), 0.0, 1.0)
+        g_factor = np.clip(np.sqrt(max(0.0, float(gravity_g))), 0.0, 1.0)
         base_moc = moc_ug + (moc_1g - moc_ug) * g_factor
         
         effective_moc = base_moc + delta_quench + delta_blowoff + delta_pressure
@@ -2901,7 +2901,41 @@ with tab_sim:
 
     flame_anim_s = max(0.55, min(2.0, 1.6 - v_flow * 0.02))
     tunnel_crit_cls = "tunnel-container critical-alert-card" if top_sfrs >= 70 else "tunnel-container"
-    specimen_glow_svg = '<rect x="273" y="93" width="12" height="14" rx="3" fill="#F59E0B" class="specimen-burning-glow"/>' if not is_top_extinguished else ""
+    is_droplet = ("MAT-08" in curr_target_id) or ("Droplet" in top_mat_name) or ("Giọt" in top_mat_name)
+    if is_droplet:
+        specimen_glow_svg = '<circle cx="305" cy="100" r="10" fill="#F59E0B" opacity="0.65" class="specimen-burning-glow"/>' if not is_top_extinguished else ""
+        specimen_visual_svg = f"""
+        <!-- Giá đỡ sợi thạch anh SiC treo giọt nhiên liệu (NASA FLEX Rig) -->
+        <rect x="180" y="98" width="95" height="4" rx="2" fill="#334155" stroke="#475569" stroke-width="1"/>
+        <line x1="275" y1="100" x2="305" y2="100" stroke="#94A3B8" stroke-width="1.2"/>
+        <circle cx="305" cy="100" r="6" fill="#38BDF8" stroke="#00F2FF" stroke-width="1.4" opacity="0.95"/>
+        <circle cx="303" cy="98" r="1.8" fill="#FFFFFF" opacity="0.85"/>
+        {specimen_glow_svg}
+        <!-- Chỉ dẫn kỹ thuật ngoài ngọn lửa -->
+        <g opacity="0.85">
+            <line x1="275" y1="96" x2="245" y2="72" stroke="#00F2FF" stroke-width="0.9" stroke-dasharray="2 2"/>
+            <line x1="245" y1="72" x2="165" y2="72" stroke="#00F2FF" stroke-width="0.9"/>
+            <circle cx="275" cy="96" r="2" fill="#00F2FF"/>
+            <text x="165" y="68" fill="#38BDF8" font-size="7.5" font-family="'JetBrains Mono', monospace" font-weight="700">FLEX-2 DROPLET RIG</text>
+        </g>
+        """
+    else:
+        specimen_glow_svg = '<rect x="273" y="93" width="12" height="14" rx="3" fill="#F59E0B" class="specimen-burning-glow"/>' if not is_top_extinguished else ""
+        specimen_visual_svg = f"""
+        <!-- Giá kẹp mẫu kim loại -->
+        <rect x="180" y="97" width="95" height="6" rx="2" fill="#334155" stroke="#475569" stroke-width="1"/>
+        <!-- Thanh mẫu thử nghiệm đốt -->
+        <rect x="275" y="96" width="55" height="8" rx="2" fill="#E2E8F0" stroke="#00F2FF" stroke-width="1.2"/>
+        {specimen_glow_svg}
+        <text x="302" y="102.5" fill="#0F172A" font-size="6.8" font-family="'JetBrains Mono', monospace" font-weight="800" text-anchor="middle">{curr_target_id}</text>
+        <!-- Chỉ dẫn kỹ thuật ngoài ngọn lửa -->
+        <g opacity="0.85">
+            <line x1="275" y1="96" x2="245" y2="72" stroke="#00F2FF" stroke-width="0.9" stroke-dasharray="2 2"/>
+            <line x1="245" y1="72" x2="165" y2="72" stroke="#00F2FF" stroke-width="0.9"/>
+            <circle cx="275" cy="96" r="2" fill="#00F2FF"/>
+            <text x="165" y="68" fill="#38BDF8" font-size="7.5" font-family="'JetBrains Mono', monospace" font-weight="700">SPECIMEN HOLDER</text>
+        </g>
+        """
 
     if flame_mode == "extinguished":
         flame_svg = f'''
@@ -3151,10 +3185,7 @@ with tab_sim:
 
                 {shockwave_and_embers_svg}
 
-                <rect x="190" y="96" width="90" height="8" rx="2" fill="#334155" stroke="#475569" stroke-width="1"/>
-                <rect x="275" y="94" width="85" height="12" rx="2" fill="#E2E8F0" stroke="#00F2FF" stroke-width="1.2"/>
-                {specimen_glow_svg}
-                <text x="317" y="103.5" fill="#0F172A" font-size="8.5" font-family="'JetBrains Mono', monospace" font-weight="700" text-anchor="middle">{specimen_short_name}</text>
+                {specimen_visual_svg}
 
                 {flame_svg}
 
@@ -3165,12 +3196,20 @@ with tab_sim:
                     </line>
                 </g>
 
-                <g transform="translate(35, 178)">
-                    <rect x="0" y="0" width="145" height="19" rx="4" fill="rgba(10, 22, 48, 0.82)" stroke="rgba(0, 242, 255, 0.5)" stroke-width="0.8"/>
+                <!-- Bottom Telemetry HUD Tri-panel -->
+                <g transform="translate(25, 178)">
+                    <rect x="0" y="0" width="140" height="19" rx="4" fill="rgba(10, 22, 48, 0.82)" stroke="rgba(0, 242, 255, 0.5)" stroke-width="0.8"/>
                     <text x="8" y="13" fill="#00F2FF" font-size="8.5" font-family="'JetBrains Mono', monospace">AIRFLOW: {v_flow:.1f} cm/s</text>
                 </g>
 
-                <g transform="translate(605, 178)">
+                <g transform="translate(175, 178)">
+                    <rect x="0" y="0" width="430" height="19" rx="4" fill="rgba(10, 22, 48, 0.88)" stroke="rgba(56, 189, 248, 0.55)" stroke-width="0.8"/>
+                    <circle cx="10" cy="9.5" r="3" fill="#00F2FF"/>
+                    <text x="18" y="13" fill="#38BDF8" font-size="8" font-family="'JetBrains Mono', monospace" font-weight="700">{'MẪU KHẢO SÁT' if lang == 'vi' else 'TEST SPECIMEN'}:</text>
+                    <text x="{102 if lang == 'vi' else 92}" y="13" fill="#FFFFFF" font-size="8.5" font-family="'JetBrains Mono', monospace" font-weight="700">{specimen_short_name} ({curr_target_id})</text>
+                </g>
+
+                <g transform="translate(615, 178)">
                     <rect x="0" y="0" width="120" height="19" rx="4" fill="rgba(10, 22, 48, 0.82)" stroke="rgba(168, 85, 247, 0.5)" stroke-width="0.8"/>
                     <text x="8" y="13" fill="#E2E8F0" font-size="8.5" font-family="'JetBrains Mono', monospace">GRAVITY: {g_val:.2f}g</text>
                 </g>
