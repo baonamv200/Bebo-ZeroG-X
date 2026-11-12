@@ -52,10 +52,33 @@ async fn handle_telemetry_socket(mut socket: WebSocket) {
     };
 
     let mut current_output = simulate_all(&current_input);
-    let mut interval = tokio::time::interval(Duration::from_millis(16)); // ~60Hz
+    let mut interval = tokio::time::interval(Duration::from_millis(200)); // 5Hz heartbeat
     let mut tick_count: u64 = 0;
+    let mut force_send = true;
 
     loop {
+        if force_send {
+            force_send = false;
+            tick_count = tick_count.wrapping_add(1);
+            let packet = TelemetryPacket {
+                tick: tick_count,
+                gravity_g: current_input.gravity_g,
+                oxygen_pct: current_input.oxygen_pct,
+                pressure_kpa: current_input.pressure_kpa,
+                airflow_cm_s: current_input.airflow_cm_s,
+                material_id: current_input.material_id.clone(),
+                sfrs: current_output.sfrs.score,
+                regime: current_output.active_regime.clone(),
+                simulation: current_output.clone(),
+            };
+
+            if let Ok(json_str) = serde_json::to_string(&packet) {
+                if socket.send(Message::Text(json_str)).await.is_err() {
+                    break;
+                }
+            }
+        }
+
         tokio::select! {
             _ = interval.tick() => {
                 tick_count = tick_count.wrapping_add(1);
@@ -109,6 +132,7 @@ async fn handle_telemetry_socket(mut socket: WebSocket) {
                             }
                             if changed {
                                 current_output = simulate_all(&current_input);
+                                force_send = true;
                             }
                         }
                     }
@@ -142,6 +166,7 @@ async fn handle_telemetry_socket(mut socket: WebSocket) {
                                 }
                                 if changed {
                                     current_output = simulate_all(&current_input);
+                                    force_send = true;
                                 }
                             }
                         }

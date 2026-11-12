@@ -70,14 +70,15 @@ impl CfdEngine {
             };
         }
 
-        // Regime transition weighting functions
-        let w_0g = (-(gravity_g / 0.12).powi(2)).exp();
-        let w_1g = 1.0 / (1.0 + (-10.0 * (gravity_g - 0.55)).exp());
+        // Regime transition weighting functions (clamped to physical degenerate floor >= 0.0g)
+        let g_safe = gravity_g.max(0.0);
+        let w_0g = (-(g_safe / 0.12).powi(2)).exp();
+        let w_1g = 1.0 / (1.0 + (-10.0 * (g_safe - 0.55)).exp());
         let w_part = (1.0 - w_0g - w_1g).max(0.0);
 
         // Aspect ratio interpolation across regimes
         let ar_0g = 1.00 + 0.015 * airflow_cm_s;
-        let ar_pg = 0.65 + 0.45 * gravity_g.max(0.0).sqrt();
+        let ar_pg = 0.65 + 0.45 * g_safe.sqrt();
         let ar_1g = (3.20 - 0.02 * airflow_cm_s).max(2.2);
         let aspect_ratio = w_0g * ar_0g + w_part * ar_pg + w_1g * ar_1g;
 

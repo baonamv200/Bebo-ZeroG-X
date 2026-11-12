@@ -81,6 +81,15 @@ pub async fn static_handler(uri: Uri) -> impl IntoResponse {
     let path = uri.path().trim_start_matches('/');
     let target = if path.is_empty() { "index.html" } else { path };
 
+    // Prevent directory traversal attacks: disallow relative parent paths and backslashes
+    if target.contains("..") || target.contains('\\') || target.starts_with('/') {
+        return Response::builder()
+            .status(StatusCode::FORBIDDEN)
+            .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
+            .body(Body::from("403 Forbidden: Invalid file path traversal"))
+            .unwrap();
+    }
+
     // 1. Check embedded assets
     if let Some(file) = Assets::get(target) {
         return Response::builder()
@@ -90,15 +99,16 @@ pub async fn static_handler(uri: Uri) -> impl IntoResponse {
             .unwrap();
     }
 
-    // 2. Check filesystem
-    if let Ok(content) = std::fs::read(format!("static/{}", target))
-        .or_else(|_| std::fs::read(target))
-    {
-        return Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, guess_mime(target))
-            .body(Body::from(content))
-            .unwrap();
+    // 2. Check filesystem safely strictly inside static/ directory
+    let safe_fs_path = std::path::Path::new("static").join(target);
+    if safe_fs_path.is_file() {
+        if let Ok(content) = std::fs::read(&safe_fs_path) {
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, guess_mime(target))
+                .body(Body::from(content))
+                .unwrap();
+        }
     }
 
     // 3. Fallback to index.html for SPA routing

@@ -2927,13 +2927,12 @@ with tab_sim:
         <!-- Thanh mẫu thử nghiệm đốt -->
         <rect x="275" y="96" width="55" height="8" rx="2" fill="#E2E8F0" stroke="#00F2FF" stroke-width="1.2"/>
         {specimen_glow_svg}
-        <text x="302" y="102.5" fill="#0F172A" font-size="6.8" font-family="'JetBrains Mono', monospace" font-weight="800" text-anchor="middle">{curr_target_id}</text>
         <!-- Chỉ dẫn kỹ thuật ngoài ngọn lửa -->
         <g opacity="0.85">
             <line x1="275" y1="96" x2="245" y2="72" stroke="#00F2FF" stroke-width="0.9" stroke-dasharray="2 2"/>
             <line x1="245" y1="72" x2="165" y2="72" stroke="#00F2FF" stroke-width="0.9"/>
             <circle cx="275" cy="96" r="2" fill="#00F2FF"/>
-            <text x="165" y="68" fill="#38BDF8" font-size="7.5" font-family="'JetBrains Mono', monospace" font-weight="700">SPECIMEN HOLDER</text>
+            <text x="165" y="68" fill="#38BDF8" font-size="7.5" font-family="'JetBrains Mono', monospace" font-weight="700">SPECIMEN HOLDER • {curr_target_id}</text>
         </g>
         """
 

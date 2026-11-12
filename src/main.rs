@@ -3,8 +3,24 @@
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
+    #[cfg(windows)]
+    unsafe {
+        #[link(name = "ws2_32")]
+        extern "system" {
+            fn WSAStartup(wVersionRequired: u16, lpWSAData: *mut [u8; 512]) -> i32;
+        }
+        let mut data = [0u8; 512];
+        let _ = WSAStartup(0x0202, &mut data);
+    }
+
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(async_main())
+}
+
+async fn async_main() -> anyhow::Result<()> {
     // Initialize tracing/logging with sensible defaults
     let _ = tracing_subscriber::registry()
         .with(
@@ -17,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
     let port: u16 = std::env::var("PORT")
         .ok()
         .and_then(|p| p.parse().ok())
-        .unwrap_or(8501);
+        .unwrap_or(8080);
 
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let addr: SocketAddr = format!("{}:{}", host, port).parse()?;

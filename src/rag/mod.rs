@@ -105,9 +105,11 @@ impl NasaPsiVectorDb {
     }
 }
 
+static GLOBAL_VECTOR_DB: std::sync::OnceLock<NasaPsiVectorDb> = std::sync::OnceLock::new();
+
 /// Public entry point for querying the RAG vector engine.
 pub fn query_rag(req: &RagQueryRequest) -> RagQueryResponse {
-    let db = NasaPsiVectorDb::new();
+    let db = GLOBAL_VECTOR_DB.get_or_init(NasaPsiVectorDb::new);
     let lang = crate::i18n::Language::from_str_loose(&req.lang);
     let top_k = if req.top_k == 0 { 3 } else { req.top_k };
     let results = db.search(&req.query, top_k);
