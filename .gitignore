@@ -22,6 +22,10 @@ __pycache__/
 scratch/
 *.bak
 
+# Rust Build Artifacts
+target/
+Cargo.lock
+
 # OS & Editor Files
 .DS_Store
 Thumbs.db
