@@ -1,0 +1,37 @@
+test_id,material,geometry,airflow_velocity_cm_s,limiting_oxygen_index_pct,extinction_mechanism,cool_flame_observed,nasa_psi_experiment_id
+BASS-II-01,PMMA (Acrylic),Cylinder Rod,0.0,22.5,Radiative Quenching,False,BASS-II-P849
+BASS-II-02,PMMA (Acrylic),Cylinder Rod,2.0,18.0,Radiative Quenching,True,BASS-II-P849
+BASS-II-03,PMMA (Acrylic),Cylinder Rod,5.0,16.5,Optimal Sustained Flame,False,BASS-II-P849
+BASS-II-04,PMMA (Acrylic),Cylinder Rod,10.0,16.0,Optimal Sustained Flame,False,BASS-II-P849
+BASS-II-05,PMMA (Acrylic),Cylinder Rod,20.0,17.2,Optimal Sustained Flame,False,BASS-II-P849
+BASS-II-06,PMMA (Acrylic),Cylinder Rod,35.0,19.5,Convective Blowoff,False,BASS-II-P849
+BASS-II-07,PMMA (Acrylic),Cylinder Rod,50.0,22.0,Convective Blowoff,False,BASS-II-P849
+BASS-II-08,Cotton-Fiberglass Blend,Flat Sheet,0.0,21.0,Radiative Quenching,False,BASS-II-P852
+BASS-II-09,Cotton-Fiberglass Blend,Flat Sheet,5.0,15.5,Optimal Sustained Flame,False,BASS-II-P852
+BASS-II-10,Cotton-Fiberglass Blend,Flat Sheet,10.0,15.0,Optimal Sustained Flame,False,BASS-II-P852
+BASS-II-11,Cotton-Fiberglass Blend,Flat Sheet,25.0,17.0,Convective Blowoff,False,BASS-II-P852
+BASS-II-12,Nomex HT90-40,Flat Sheet,0.0,32.0,Radiative Quenching,False,BASS-II-P855
+BASS-II-13,Nomex HT90-40,Flat Sheet,5.0,27.5,Optimal Sustained Flame,False,BASS-II-P855
+BASS-II-14,Nomex HT90-40,Flat Sheet,10.0,26.5,Optimal Sustained Flame,False,BASS-II-P855
+BASS-II-15,Nomex HT90-40,Flat Sheet,20.0,28.0,Optimal Sustained Flame,False,BASS-II-P855
+BASS-II-16,Nomex HT90-40,Flat Sheet,40.0,31.5,Convective Blowoff,False,BASS-II-P855
+BASS-II-17,Silicone Elastomer RTV,Gasket Strip,0.0,28.0,Radiative Quenching,True,BASS-II-P860
+BASS-II-18,Silicone Elastomer RTV,Gasket Strip,10.0,22.5,Optimal Sustained Flame,True,BASS-II-P860
+BASS-II-19,Ultem 1000,Flat Sheet,0.0,35.0,Radiative Quenching,False,BASS-II-P864
+BASS-II-20,Ultem 1000,Flat Sheet,10.0,29.5,Optimal Sustained Flame,False,BASS-II-P864
+BASS-II-21,Teflon / PTFE,Wire Jacket,0.0,46.0,Radiative Quenching,False,BASS-II-P870
+BASS-II-22,Teflon / PTFE,Wire Jacket,10.0,41.0,Optimal Sustained Flame,False,BASS-II-P870
+BASS-II-23,Sibal Cotton Fabric,Thin Sheet,0.0,19.0,Radiative Quenching,False,BASS-II-P840
+BASS-II-24,Sibal Cotton Fabric,Thin Sheet,10.0,13.5,Optimal Sustained Flame,False,BASS-II-P840
+BASS-II-25,Heptane Droplet,Spherical Droplet,0.0,18.0,Cool Flame Transition,True,FLEX-ICE-102
+BASS-II-26,Heptane Droplet,Spherical Droplet,5.0,14.0,Cool Flame Transition,True,FLEX-ICE-102
+BASS-II-27,Polycarbonate Lexan,Flat Sheet,0.0,30.0,Radiative Quenching,False,BASS-II-P875
+BASS-II-28,Polycarbonate Lexan,Flat Sheet,10.0,24.0,Optimal Sustained Flame,False,BASS-II-P875
+BASS-II-29,Kapton HN Polyimide,Thin Film,0.0,42.0,Radiative Quenching,False,BASS-II-P880
+BASS-II-30,Kapton HN Polyimide,Thin Film,10.0,37.0,Optimal Sustained Flame,False,BASS-II-P880
+ACME-CLF-01,Methane Gas Jet,Spherical Gas Jet,0.0,15.2,Radiative Quenching,False,ACME-CFI-401
+ACME-CLF-02,Methane Gas Jet,Spherical Gas Jet,5.0,12.8,Optimal Sustained Flame,False,ACME-CFI-401
+ACME-BRE-03,Ethylene Gas Burner,Opposed Flow Burner,10.0,11.5,Optimal Sustained Flame,False,ACME-BRE-405
+ACME-BRE-04,Ethylene Gas Burner,Opposed Flow Burner,35.0,14.8,Convective Blowoff,False,ACME-BRE-405
+SPICE-ENC-01,Carbon Dust Aerosol,Enclosed Chamber,0.0,18.5,Radiative Quenching,False,SPICE-ISS-512
+SPICE-ENC-02,PMMA Micro-Powder Cloud,Enclosed Chamber,5.0,13.2,Optimal Sustained Flame,True,SPICE-ISS-512

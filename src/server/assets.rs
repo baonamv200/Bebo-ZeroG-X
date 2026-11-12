@@ -49,16 +49,7 @@ fn guess_mime(path: &str) -> &'static str {
 
 /// Handler serving `index.html` on root `/` with `Content-Type: text/html`.
 pub async fn serve_index() -> impl IntoResponse {
-    // 1. Try embedded asset
-    if let Some(file) = Assets::get("index.html") {
-        return Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-            .body(Body::from(file.data))
-            .unwrap();
-    }
-
-    // 2. Fallback to reading from static/index.html or index.html on disk
+    // 1. Check filesystem first for live hot-reloading if file exists on disk
     if let Ok(content) = std::fs::read("static/index.html")
         .or_else(|_| std::fs::read("index.html"))
     {
@@ -66,6 +57,15 @@ pub async fn serve_index() -> impl IntoResponse {
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
             .body(Body::from(content))
+            .unwrap();
+    }
+
+    // 2. Fallback to embedded asset
+    if let Some(file) = Assets::get("index.html") {
+        return Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+            .body(Body::from(file.data))
             .unwrap();
     }
 
