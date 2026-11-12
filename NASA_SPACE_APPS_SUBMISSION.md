@@ -6,7 +6,7 @@
 > **Team Lead & Architect:** Vũ Bảo Nam (Vu Bao Nam)  
 > **Team Members:** Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh  
 > **Institution:** Trường THPT FPT (FPT High School)  
-> **Source Code Repository:** [github.com/baonamv200/nasa](https://github.com/baonamv200/nasa)  
+> **Source Code Repository:** [github.com/baonamv200/Bebo-ZeroG-X](https://github.com/baonamv200/Bebo-ZeroG-X)  
 > **Live Web Application:** [flames-in-freefall.streamlit.app](https://flames-in-freefall.streamlit.app)  
 
 ---
@@ -78,7 +78,7 @@ Anyone can independently verify the calculations and safety predictions:
 ---
 
 ### 7. Links & Resources
-* 💻 **GitHub Repository:** [https://github.com/baonamv200/nasa](https://github.com/baonamv200/nasa)
+* 💻 **GitHub Repository:** [https://github.com/baonamv200/Bebo-ZeroG-X](https://github.com/baonamv200/Bebo-ZeroG-X)
 * 🌐 **Live Web Demo:** [https://flames-in-freefall.streamlit.app](https://flames-in-freefall.streamlit.app)
 * 🎥 **2-Minute Video Pitch:** [YouTube Demo Link Placeholder / Video Link]
 

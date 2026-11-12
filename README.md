@@ -30,7 +30,7 @@
    ## 🖥️ Live Demo & Preview
 
 - 🌐 **Live Web Application:** [Launch Flames in Freefall Dashboard](https://beboignis-0g.streamlit.app/) *(Official Deployment on Streamlit Community Cloud)*
-- 🎬 **2-Minute Video Pitch & Walkthrough:** [Watch Official Video Pitch](https://github.com/baonamv200/nasa#readme) • *Bebo ZeroG-X Team*
+- 🎬 **2-Minute Video Pitch & Walkthrough:** [Watch Official Video Pitch](https://github.com/baonamv200/Bebo-ZeroG-X#readme) • *Bebo ZeroG-X Team*
 - 🛰️ **NASA Space Apps Challenge Entry:** [Official Project Submission Dossier](NASA_SPACE_APPS_SUBMISSION.md) • *Bebo ZeroG-X*
 
    ---

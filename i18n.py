@@ -1,7 +1,7 @@
 
 TRANSLATIONS = {
     "vi": {
-        "page_title": "Flames in Freefall | An toàn Cháy Tàu Vũ trụ NASA",
+        "page_title": "Flames in Freefall | Bebo ZeroG-X",
         "usa_banner_1": "BÀI DỰ THI CHÍNH THỨC NASA SPACE APPS CHALLENGE 2026",
         "usa_banner_2": "Đội thi: Bebo ZeroG-X (THPT FPT) • Lead: Vũ Bảo Nam • Thành viên: Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh",
         "nav_agency_title": "BEBO ZEROG-X • THPT FPT",
@@ -218,7 +218,7 @@ TRANSLATIONS = {
     },
     
     "en": {
-        "page_title": "Flames in Freefall | NASA Fire Safety",
+        "page_title": "Flames in Freefall | Bebo ZeroG-X Fire Safety",
         "usa_banner_1": "OFFICIAL ENTRY FOR NASA SPACE APPS CHALLENGE 2026",
         "usa_banner_2": "Team: Bebo ZeroG-X (FPT High School) • Lead: Vu Bao Nam • Members: Do Duy Nam, Luong Duc Tung, Trinh Duc Anh",
         "nav_agency_title": "BEBO ZEROG-X • FPT HIGH SCHOOL",

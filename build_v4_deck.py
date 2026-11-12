@@ -177,7 +177,7 @@ p.font.size = Pt(22)
 p.font.bold = True
 p.font.color.rgb = TEXT_WHITE
 p = tf2.add_paragraph()
-p.text = "• Team Lead & Architect: Vũ Bảo Nam\n• Members: Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh\n• Nền tảng: Python 3.11 • Streamlit • Plotly 3D • AI RAG\n• Kho mã nguồn: github.com/baonamv200/nasa"
+p.text = "• Team Lead & Architect: Vũ Bảo Nam\n• Members: Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh\n• Nền tảng: Python 3.11 • Streamlit • Plotly 3D • AI RAG\n• Kho mã nguồn: github.com/baonamv200/Bebo-ZeroG-X"
 p.font.name = FONT_BODY
 p.font.size = Pt(14)
 p.font.color.rgb = TEXT_MUTED
@@ -763,7 +763,7 @@ p.font.color.rgb = CYAN_ACCENT
 # ---------------------------------------------------------
 # SLIDE 9: ĐỊNH HƯỚNG PHÁT TRIỂN & KẾT LUẬN
 # ---------------------------------------------------------
-s9_notes = """Trong tương lai, chúng tôi sẽ tích hợp mạng nơ-ron vật lý PINNs và kết nối trực tiếp với cảm biến viễn thám trên trạm không gian để phát hiện cháy tự động. Mời quý vị quét mã QR để trải nghiệm sản phẩm trực tiếp và đóng góp vào kho mã nguồn mở của chúng tôi tại github.com/baonamv200/nasa. Xin chân thành cảm ơn!"""
+s9_notes = """Trong tương lai, chúng tôi sẽ tích hợp mạng nơ-ron vật lý PINNs và kết nối trực tiếp với cảm biến viễn thám trên trạm không gian để phát hiện cháy tự động. Mời quý vị quét mã QR để trải nghiệm sản phẩm trực tiếp và đóng góp vào kho mã nguồn mở của chúng tôi tại github.com/baonamv200/Bebo-ZeroG-X. Xin chân thành cảm ơn!"""
 s9 = create_slide(s9_notes)
 add_header(s9, "ĐỊNH HƯỚNG PHÁT TRIỂN & KHO MÃ NGUỒN", "FUTURE ROADMAP & CONCLUSION", 9)
 
@@ -817,7 +817,7 @@ p.font.size = Pt(13)
 p.font.bold = True
 p.font.color.rgb = CYAN_ACCENT
 p = tf_gt.add_paragraph()
-p.text = "github.com/baonamv200/nasa"
+p.text = "github.com/baonamv200/Bebo-ZeroG-X"
 p.font.name = FONT_MONO
 p.font.size = Pt(15)
 p.font.bold = True

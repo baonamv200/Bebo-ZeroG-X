@@ -68,12 +68,12 @@
 
 #### 🎬 PHÂN CẢNH 5: Ý NGHĨA SỨ MỆNH & KẾT LUẬN (01:40 – 02:00 | 20 giây)
 * **Hình ảnh trên màn hình (Visual):** 
-  * Camera quay trở lại tác giả Vũ Bảo Nam, bên cạnh là mã QR dẫn đến GitHub `github.com/baonamv200/nasa` và link web trực tuyến.
+  * Camera quay trở lại tác giả Vũ Bảo Nam, bên cạnh là mã QR dẫn đến GitHub `github.com/baonamv200/Bebo-ZeroG-X` và link web trực tuyến.
   * Hiện logo NASA Space Apps Challenge 2026, dòng chữ cảm ơn và chữ ký số.
 * **Lời thoại (Speaker Audio):**
-  > *"Flames in Freefall bảo vệ sinh mạng phi hành đoàn cho sứ mệnh Artemis và tương lai đa hành tinh của nhân loại. Toàn bộ mã nguồn mở đã sẵn sàng tại github.com/baonamv200/nasa. Tôi là Vũ Bảo Nam. Cảm ơn Ban giám khảo đã lắng nghe!"*
+  > *"Flames in Freefall bảo vệ sinh mạng phi hành đoàn cho sứ mệnh Artemis và tương lai đa hành tinh của nhân loại. Toàn bộ mã nguồn mở đã sẵn sàng tại github.com/baonamv200/Bebo-ZeroG-X. Tôi là Vũ Bảo Nam. Cảm ơn Ban giám khảo đã lắng nghe!"*
 * **Phụ đề tiếng Anh:**
-  > *"Flames in Freefall safeguards astronaut lives for Artemis and our multi-planetary future. Open source code is available at github.com/baonamv200/nasa. I am Vu Bao Nam. Thank you for your consideration!"*
+  > *"Flames in Freefall safeguards astronaut lives for Artemis and our multi-planetary future. Open source code is available at github.com/baonamv200/Bebo-ZeroG-X. I am Vu Bao Nam. Thank you for your consideration!"*
 
 ---
 
