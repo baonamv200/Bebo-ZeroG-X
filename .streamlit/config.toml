@@ -1,3 +1,6 @@
+[browser]
+gatherUsageStats = false
+
 [theme]
 primaryColor = "#38BDF8"
 backgroundColor = "#060D1A"
@@ -9,3 +12,8 @@ font = "sans serif"
 headless = true
 enableCORS = false
 enableXsrfProtection = false
+
+[runner]
+magicEnabled = false
+fastReruns = true
+

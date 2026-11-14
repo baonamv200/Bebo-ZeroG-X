@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import html
 
 TRANSLATIONS = {
     "vi": {
@@ -214,6 +217,25 @@ TRANSLATIONS = {
         "dossier_flame_morphology": "Hình thái Ngọn lửa:",
         "target_specimen_label": "🎯 Vật liệu Khảo sát trong Buồng đốt:",
         "mobile_swipe_hint": "👉 Vuốt ngang để xem đủ 6 cột dữ liệu (SFRS & Chuẩn NASA)",
+        "temp_label": "Nhiệt độ Khoang",
+        "temp_help": "Nhiệt độ môi trường khoang tàu (°C). Ảnh hưởng đến áp suất hơi bão hòa và quá trình gia nhiệt sơ bộ vật liệu.",
+        "rh_label": "Độ ẩm Tương đối (RH)",
+        "rh_help": "Độ ẩm tương đối (%). Ảnh hưởng pha loãng hơi nước và dung nhiệt đối lưu (Arden Buck).",
+        "audio_mute_label": "🔇 Tắt âm Cảnh báo SFRS > 85",
+        "audio_unmuted_status": "🔊 Âm thanh cảnh báo đang BẬT (880Hz/1046Hz khi SFRS > 85)",
+        "audio_muted_status": "🔇 Âm thanh cảnh báo đã TẮT (chỉ hiển thị viền đỏ nhấp nháy)",
+        "nasa_6001b_table_title": "Bảng Hiệu chuẩn Tiêu chuẩn NASA-STD-6001B (Test 1 & Test 2)",
+        "nasa_6001b_table_caption": "Đối chiếu ngưỡng thử nghiệm cháy lan dọc (Test 1) và tốc độ tỏa nhiệt HRR (Test 2) theo NASA-STD-6001B.",
+        "custom_mat_expander_title": "🧪 Đánh giá Vật liệu Composite Tùy chỉnh (Custom Specimen)",
+        "custom_mat_submit_btn": "➕ Tính toán & Thêm vào Bảng Đánh giá",
+        "scenario_comp_expander_title": "⚖️ So sánh Song song Hai Kịch bản Môi trường (Side-by-Side Diff & Radar)",
+        "webgl_3d_mode_label": "🌐 Chế độ WebGL 3D Tương tác (Three.js 360°)",
+        "ntc_kinetics_title": "Động học Ngọn lửa Lạnh 2-Bước (Cool Flame NTC Oscillatory Kinetics)",
+        "ntc_kinetics_caption": "Mô phỏng phương trình vi phân liên kết nhiệt độ T(t) và nồng độ gốc CO [CO](t) trong vùng NTC.",
+        "rag_upload_label": "📄 Tải lên Tài liệu Nghiên cứu (PDF / TXT / MD) để lập Chỉ mục Offline",
+        "rag_clear_chat_btn": "🗑️ Xóa Lịch sử Hội thoại RAG",
+        "rag_chat_history_title": "💬 Lịch sử Phân tích Đa lượt (Multi-Turn Session)",
+        "btn_download_pdf": "📑 Tải Hồ sơ An toàn Sứ mệnh (NASA TM PDF)",
         
     },
     
@@ -432,6 +454,25 @@ TRANSLATIONS = {
         "dossier_flame_morphology": "Flame Morphology:",
         "target_specimen_label": "🎯 Combustion Specimen in Tunnel:",
         "mobile_swipe_hint": "👉 Swipe horizontally to view all 6 columns (SFRS & NASA Standards)",
+        "temp_label": "Cabin Temperature",
+        "temp_help": "Ambient cabin temperature (°C). Influences saturation vapor pressure and fuel pre-heating enthalpy.",
+        "rh_label": "Relative Humidity (RH)",
+        "rh_help": "Relative humidity (%). Modulates water-vapor molar dilution and inerting capacity (Arden Buck).",
+        "audio_mute_label": "🔇 Mute Critical Alert Audio (SFRS > 85)",
+        "audio_unmuted_status": "🔊 Critical alert chime ARMED (880Hz/1046Hz when SFRS > 85)",
+        "audio_muted_status": "🔇 Alert audio MUTED (visual red perimeter pulse remains active)",
+        "nasa_6001b_table_title": "NASA-STD-6001B Calibration Matrix (Test 1 & Test 2)",
+        "nasa_6001b_table_caption": "Formal upward flame propagation pass/fail thresholds (Test 1) and cone calorimeter HRR limits (Test 2).",
+        "custom_mat_expander_title": "🧪 Custom Composite Material Evaluation (NASA-STD-6001B Screening)",
+        "custom_mat_submit_btn": "➕ Evaluate & Append to Matrix",
+        "scenario_comp_expander_title": "⚖️ Side-by-Side Scenario Comparison (Delta Diff & 5-Axis Radar)",
+        "webgl_3d_mode_label": "🌐 Interactive 3D WebGL Engine (Three.js 360°)",
+        "ntc_kinetics_title": "2-Step Cool Flame NTC Oscillatory Kinetics ODE",
+        "ntc_kinetics_caption": "Coupled differential evolution of gas temperature T(t) and CO intermediate radical concentration [CO](t).",
+        "rag_upload_label": "📄 Upload Research Paper (PDF / TXT / MD) to Offline Vector Index",
+        "rag_clear_chat_btn": "🗑️ Reset RAG Conversation History",
+        "rag_chat_history_title": "💬 Multi-Turn Flight Safety Consultation History",
+        "btn_download_pdf": "📑 Download Mission Safety Dossier (NASA TM PDF)",
         
     }
 }
@@ -771,3 +812,145 @@ def get_morphology_regime_info(regime_code: str, gravity_g: float, airflow_cm_s:
             soot_fraction = "Moderate (0.75 × 10⁻⁶, Lingering Smoke Blanket)"
             
     return regime_name, morph_desc, soot_fraction
+
+
+# ==============================================================================
+# FEATURE 7: AEROSPACE ACRONYM TOOLTIP LIBRARY (WCAG 2.1 AA)
+# ==============================================================================
+ACRONYM_DICTIONARY = {
+    "Da": {
+        "term": {
+            "en": "Damköhler Number",
+            "vi": "Số Damköhler"
+        },
+        "full_abbr": "Da",
+        "description": {
+            "en": "Ratio of fluid flow timescale to chemical reaction timescale. When Da < 1, high airflow blows out the flame (convective blowoff). When Da >> 1, combustion is vigorous and diffusion-controlled.",
+            "vi": "Tỷ số giữa thời gian đặc trưng dòng chảy và thời gian phản ứng hóa học. Khi Da < 1, gió mạnh thổi tắt ngọn lửa (blowoff). Khi Da >> 1, phản ứng cháy mãnh liệt và phụ thuộc khuếch tán."
+        },
+        "formula": "Da = τ_flow / τ_chem ∝ (1/v_eff) · (O₂/21.0)^1.2 · (P/P₀)^0.8"
+    },
+    "Re": {
+        "term": {
+            "en": "Reynolds Number",
+            "vi": "Số Reynolds"
+        },
+        "full_abbr": "Re",
+        "description": {
+            "en": "Ratio of inertial forces to viscous forces in fluid flow. Spacecraft cabin ventilation (5–20 cm/s) maintains smooth, laminar boundary layer flow (Re < 500), avoiding turbulent flame disturbance.",
+            "vi": "Tỷ số giữa lực quán tính và lực nhớt trong dòng chảy. Hệ thống thông gió cabin tàu vũ trụ (5–20 cm/s) duy trì dòng chảy tầng êm (Re < 500), không gây xáo trộn cuộn xoáy ngọn lửa."
+        },
+        "formula": "Re = (v · L) / ν"
+    },
+    "Pe": {
+        "term": {
+            "en": "Péclet Number",
+            "vi": "Số Péclet"
+        },
+        "full_abbr": "Pe",
+        "description": {
+            "en": "Ratio of advective transport rate to molecular thermal/mass diffusion rate (Pe = Re · Pr). Governs the peak burning rate at low ventilation velocities (Low-Flow Ventilation Paradox) in microgravity.",
+            "vi": "Tỷ số giữa tốc độ đối lưu cưỡng bức và tốc độ khuếch tán nhiệt/khối phân tử (Pe = Re · Pr). Quyết định nghịch lý cháy đỉnh ở vận tốc gió thấp (Ventilation Paradox) trong vi trọng lực."
+        },
+        "formula": "Pe = (v · L) / α"
+    },
+    "Ri": {
+        "term": {
+            "en": "Richardson Number",
+            "vi": "Số Richardson"
+        },
+        "full_abbr": "Ri",
+        "description": {
+            "en": "Ratio of buoyant natural convection to forced flow (Ri = Gr / Re²). In microgravity (0g), Ri = 0. In Moon (0.16g) and Mars (0.38g) partial gravity, Ri ~ 0.1–5 causes flame contact footprint to mushroom laterally by up to 240%.",
+            "vi": "Tỷ số giữa lực nổi đối lưu tự nhiên và dòng chảy cưỡng bức (Ri = Gr / Re²). Trong 0g, Ri = 0. Ở Mặt Trăng (0.16g) và Sao Hỏa (0.38g), Ri ~ 0.1–5 khiến ngọn lửa bè rộng thành bán cầu nguy hiểm (diện tích tiếp xúc tăng 240%)."
+        },
+        "formula": "Ri = Gr / Re² = (g · β · ΔT · L) / v²"
+    },
+    "SFRS": {
+        "term": {
+            "en": "Spacecraft Fire Risk Score",
+            "vi": "Điểm Nguy cơ Cháy Tàu Vũ trụ"
+        },
+        "full_abbr": "SFRS",
+        "description": {
+            "en": "NASA composite flammability safety metric (0–100) combining oxygen margin (ΔO₂%), flame spread rate (V_spread), heat of combustion (HOC), and ventilation regime. Scores > 85 indicate critical hazard requiring ECLSS HVAC isolation.",
+            "vi": "Thang điểm an toàn cháy tổng hợp của NASA (0–100) kết hợp biên độ oxy (ΔO₂%), tốc độ lan truyền ngọn lửa, nhiệt lượng cháy (HOC) và hiểm họa dòng thông gió. Điểm > 85 là mức nguy cấp yêu cầu ngắt thông gió ECLSS."
+        },
+        "formula": "SFRS = f(ΔO₂, V_spread, HOC, P, v)"
+    },
+    "MOC": {
+        "term": {
+            "en": "Maximum Oxygen Concentration",
+            "vi": "Nồng độ Oxy Cực đại Tự tắt"
+        },
+        "full_abbr": "MOC",
+        "description": {
+            "en": "Lowest volumetric oxygen concentration supporting sustained combustion (NASA-STD-6001B Test 1). In microgravity low-flow conditions, effective MOC drops by 2–4%, allowing materials certified safe on Earth to ignite in space.",
+            "vi": "Nồng độ oxy thể tích thấp nhất duy trì sự lan truyền đám cháy (NASA-STD-6001B Thí nghiệm 1). Trong vi trọng lực gió chậm, MOC hiệu dụng giảm 2–4%, khiến vật liệu an toàn trên Trái Đất có thể bốc cháy trong vũ trụ."
+        },
+        "formula": "MOC_eff = MOC_1g - Δ_env"
+    },
+    "ΔO2%": {
+        "term": {
+            "en": "Oxygen Safety Margin",
+            "vi": "Biên độ An toàn Oxy"
+        },
+        "full_abbr": "ΔO₂%",
+        "description": {
+            "en": "Difference between ambient cabin oxygen concentration and the material's extinction threshold: ΔO₂% = Cabin_O₂ - MOC_eff. Negative values indicate self-extinguishment; positive values indicate sustained fire hazard.",
+            "vi": "Chênh lệch giữa nồng độ oxy khoang thực tế và ngưỡng dập tắt hiệu dụng của vật liệu: ΔO₂% = O₂_khoang - MOC_eff. Giá trị âm thể hiện đám cháy tự dập tắt; giá trị dương cảnh báo nguy cơ cháy duy trì."
+        },
+        "formula": "ΔO₂% = O₂_cabin - MOC_eff"
+    }
+}
+
+
+def _sanitize_tooltip_text(text: str) -> str:
+    """Escape HTML/attribute metacharacters while preserving explicit <b>/</b> emphasis tags."""
+    if text is None:
+        return ""
+    escaped = html.escape(str(text), quote=True)
+    return escaped.replace("&lt;b&gt;", "<b>").replace("&lt;/b&gt;", "</b>")
+
+
+def render_acronym_tooltip(acronym_key: str, lang: str = "en", display_text: str | None = None) -> str:
+    """
+    Renders an accessible, hoverable/tap-friendly HTML acronym tooltip badge.
+    Complies with WCAG 2.1 AA keyboard focus, screen reader, and XSS sanitization standards.
+    """
+    if not acronym_key or not isinstance(acronym_key, str):
+        return _sanitize_tooltip_text(display_text) if display_text is not None else ""
+
+    key = acronym_key.strip()
+    if key in ["Delta_O2", "dO2", "delta_o2", "ΔO2", "ΔO2%", "delta_o2_pct", "Delta_O2_pct"]:
+        key = "ΔO2%"
+    info = ACRONYM_DICTIONARY.get(key)
+    if not info:
+        raw_fallback = display_text if display_text is not None else acronym_key
+        return _sanitize_tooltip_text(raw_fallback)
+
+    term_dict = info.get("term", {})
+    term_name = term_dict.get(lang, term_dict.get("en", key))
+    desc_dict = info.get("description", {})
+    desc = desc_dict.get(lang, desc_dict.get("en", ""))
+    formula = info.get("formula", "")
+    disp = _sanitize_tooltip_text(display_text) if display_text is not None else _sanitize_tooltip_text(info.get("full_abbr", key))
+
+    safe_key = html.escape(str(key), quote=True)
+    safe_term = html.escape(str(term_name), quote=True)
+    safe_desc = html.escape(str(desc), quote=True)
+    safe_formula = _sanitize_tooltip_text(formula)
+    formula_html = f'<div class="nasa-tt-formula">{safe_formula}</div>' if formula else ""
+
+    return (
+        f'<abbr class="nasa-acronym-abbr" tabindex="0" aria-label="{safe_term}: {safe_desc}" title="{safe_term} — {safe_desc}">'
+        f'<span class="nasa-acronym-text">{disp}</span>'
+        f'<span class="nasa-tt-card" role="tooltip">'
+        f'<span class="nasa-tt-badge">{safe_key}</span>'
+        f'<span class="nasa-tt-title">{safe_term}</span>'
+        f'<span class="nasa-tt-desc">{safe_desc}</span>'
+        f'{formula_html}'
+        f'</span>'
+        f'</abbr>'
+    )
+

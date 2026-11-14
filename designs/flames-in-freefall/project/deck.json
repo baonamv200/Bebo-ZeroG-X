@@ -6,25 +6,21 @@
   "order": [
     "cover",
     "problem",
-    "data-challenge",
     "solution",
-    "tech-stack",
+    "data-challenge",
     "architecture",
     "impact",
-    "rubric",
     "conclusion"
   ],
   "cover": "cover",
   "sections": {
-    "s1": { "description": "Trang bìa & Tổng quan dự án", "start": "cover" },
-    "s2": { "description": "Vấn đề thực tiễn & Nghịch lý thông gió", "start": "problem" },
-    "s3": { "description": "Thách thức dữ liệu NASA PSI", "start": "data-challenge" },
-    "s4": { "description": "Giải pháp Flames in Freefall & Mission Presets", "start": "solution" },
-    "s5": { "description": "Tính năng cốt lõi & Ngăn xếp công nghệ", "start": "tech-stack" },
-    "s6": { "description": "Kiến trúc hệ thống & Ma trận dập lửa khẩn cấp", "start": "architecture" },
-    "s7": { "description": "Ý nghĩa & Tác động chiến lược", "start": "impact" },
-    "s8": { "description": "Đối chiếu 6 tiêu chí NASA Space Apps", "start": "rubric" },
-    "s9": { "description": "Định hướng phát triển & Mã nguồn mở", "start": "conclusion" }
+    "s1": { "description": "Cover, Challenge Scope, and High-Level Summary", "start": "cover" },
+    "s2": { "description": "Microgravity & Partial-Gravity Combustion Paradoxes", "start": "problem" },
+    "s3": { "description": "Flames in Freefall Mission Control HUD & Dual-Engine Architecture", "start": "solution" },
+    "s4": { "description": "NASA PSI Flight Datasets & NASA-STD-6001B Calibration Pipeline", "start": "data-challenge" },
+    "s5": { "description": "Artemis Live Demo Benchmark, Suppression Protocol & 406 Automated Tests", "start": "architecture" },
+    "s6": { "description": "Spaceflight Safety Impact & 2026-2027 Strategic Roadmap", "start": "impact" },
+    "s7": { "description": "Team Roster, Academic References & Mandatory AI Disclosure", "start": "conclusion" }
   },
   "faces": {
     "plus-jakarta-sans": {

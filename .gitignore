@@ -25,3 +25,9 @@ scratch/
 # OS & Editor Files
 .DS_Store
 Thumbs.db
+
+# Rust / Build / Agent Artifacts
+target/
+.cargo/
+.agents/
+python*.dll

@@ -1,4 +1,6 @@
 
+import hashlib
+import html
 import json
 import math
 import os
@@ -13,7 +15,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 from plotly.subplots import make_subplots
+
+import pdf_dossier
+import physics_models
+import rag_engine
+import threejs_flame
 
 # Auto-load .env configuration if present
 _env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -38,14 +46,31 @@ if os.path.exists(_env_file):
 from functools import lru_cache
 import unicodedata
 
+try:
+    import nasa_rust as rust_core
+    RUST_BACKEND_AVAILABLE = True
+except ImportError:
+    try:
+        import nasa_rust_core as rust_core
+        RUST_BACKEND_AVAILABLE = True
+    except ImportError:
+        rust_core = None
+        RUST_BACKEND_AVAILABLE = False
+
 _TOKEN_RE = re.compile(r"\b[a-z0-9_-]{2,}\b")
 
-@lru_cache(maxsize=1024)
-def normalize_vn_text(text: str) -> str:
-    if not text:
-        return ""
-    nfkd = unicodedata.normalize("NFKD", str(text).replace("đ", "d").replace("Đ", "D"))
-    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+if RUST_BACKEND_AVAILABLE:
+    def normalize_vn_text(text: str) -> str:
+        if not text:
+            return ""
+        return rust_core.normalize_vn_text(str(text))
+else:
+    @lru_cache(maxsize=1024)
+    def normalize_vn_text(text: str) -> str:
+        if not text:
+            return ""
+        nfkd = unicodedata.normalize("NFKD", str(text).replace("đ", "d").replace("Đ", "D"))
+        return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
 
 remove_accents = normalize_vn_text
 
@@ -63,6 +88,8 @@ try:
         get_i18n,
         get_morphology_regime_info,
         get_protocol,
+        ACRONYM_DICTIONARY,
+        render_acronym_tooltip,
     )
     I18N_IMPORTED = True
 except ImportError:
@@ -74,18 +101,253 @@ def render_html(html_str: str):
     cleaned = "\n".join(line.strip() for line in html_str.splitlines() if line.strip())
     st.markdown(cleaned, unsafe_allow_html=True)
 
-if "lang" not in st.session_state:
-    st.session_state.lang = "en"
 
-lang = st.session_state.lang
-t = get_i18n(lang)
+def render_mission_patch_svg(size_px: int, css_class: str = "", uid: str = "patch") -> str:
+    """Return a self-contained inline SVG Bebo Ignis-0G Mission Patch emblem (zero external URLs)."""
+    safe_uid = re.sub(r"[^a-zA-Z0-9_-]", "", str(uid)) or "patch"
+    class_attr = f' class="{css_class}"' if css_class else ""
+    style_attr = (
+        ' style="flex-shrink: 0; display: block;"'
+        if css_class
+        else f' style="width: {size_px}px; height: {size_px}px; flex-shrink: 0; display: block;"'
+    )
+    return (
+        f'<svg{class_attr} width="{size_px}" height="{size_px}" viewBox="0 0 64 64"'
+        f' role="img" aria-label="Bebo Ignis-0G Mission Patch"{style_attr}>'
+        f"<title>Bebo Ignis-0G Mission Patch</title>"
+        f"<defs>"
+        f'<radialGradient id="ignisBg_{safe_uid}" cx="50%" cy="45%" r="55%">'
+        f'<stop offset="0%" stop-color="#0F2647"/><stop offset="100%" stop-color="#060D1A"/>'
+        f"</radialGradient>"
+        f'<linearGradient id="ignisRing_{safe_uid}" x1="0%" y1="0%" x2="100%" y2="100%">'
+        f'<stop offset="0%" stop-color="#38BDF8"/><stop offset="50%" stop-color="#0EA5E9"/><stop offset="100%" stop-color="#F97316"/>'
+        f"</linearGradient>"
+        f'<linearGradient id="ignisFlame_{safe_uid}" x1="50%" y1="100%" x2="50%" y2="0%">'
+        f'<stop offset="0%" stop-color="#EF4444"/><stop offset="55%" stop-color="#F97316"/><stop offset="100%" stop-color="#FACC15"/>'
+        f"</linearGradient>"
+        f"</defs>"
+        f'<circle cx="32" cy="32" r="30" fill="url(#ignisBg_{safe_uid})" stroke="url(#ignisRing_{safe_uid})" stroke-width="2.2"/>'
+        f'<circle cx="32" cy="32" r="25.5" fill="none" stroke="#38BDF8" stroke-width="0.9" stroke-dasharray="3 3" opacity="0.55"/>'
+        f'<path d="M32 10 L49 17.5 V31.5 C49 42.5 41.5 50.5 32 54.5 C22.5 50.5 15 42.5 15 31.5 V17.5 Z" fill="#0B1930" stroke="#38BDF8" stroke-width="1.3" stroke-linejoin="round" opacity="0.95"/>'
+        f'<circle cx="21" cy="21" r="1" fill="#BAE6FD"/><circle cx="43" cy="22" r="1.1" fill="#BAE6FD"/><circle cx="32" cy="14.5" r="1" fill="#7DD3FC"/>'
+        f'<ellipse cx="32" cy="34" rx="20" ry="7.2" transform="rotate(-24 32 34)" fill="none" stroke="#38BDF8" stroke-width="1.5" opacity="0.85"/>'
+        f'<circle cx="48.5" cy="26.5" r="2.2" fill="#E0F2FE"/>'
+        f'<circle cx="32" cy="34.5" r="9.8" fill="#0EA5E9" opacity="0.22"/>'
+        f'<path d="M32 20 C35.5 25.5 39 29.5 39 34.5 C39 39.2 35.8 42.5 32 42.5 C28.2 42.5 25 39.2 25 34.5 C25 30.8 27.2 27.6 29.2 25.2 C29.4 27.5 30.7 28.6 31.3 28.6 C30.6 25.6 31.1 22.4 32 20 Z" fill="url(#ignisFlame_{safe_uid})"/>'
+        f'<path d="M32 28.5 C34 31.2 35.2 33.2 35.2 35.6 C35.2 37.8 33.8 39.5 32 39.5 C30.2 39.5 28.8 37.8 28.8 35.6 C28.8 33.2 30.2 31 32 28.5 Z" fill="#FEF08A"/>'
+        f"</svg>"
+    )
+
+# ==============================================================================
+# MILESTONE M1: TELEMETRY CONFIGURATION & PRESET PROFILES
+# ==============================================================================
+TELEMETRY_CONFIG = {
+    "gravity_val": {
+        "icon": "🌍",
+        "default": 0.00,
+        "min": 0.00,
+        "max": 1.00,
+        "step": 0.01,
+        "decimals": 2,
+        "format": "%.2f",
+        "qp_key": "g",
+        "label_key": "gravity_label",
+        "default_label": "Mức Trọng lực",
+        "default_label_en": "Gravity Level",
+        "help_key": "gravity_help",
+    },
+    "o2_val": {
+        "icon": "🧪",
+        "default": 21.0,
+        "min": 14.0,
+        "max": 100.0,
+        "step": 0.1,
+        "decimals": 1,
+        "format": "%.1f",
+        "qp_key": "o2",
+        "label_key": "oxygen_label",
+        "default_label": "Nồng độ Oxy",
+        "default_label_en": "Oxygen Level",
+        "help_key": "oxygen_help",
+    },
+    "p_val": {
+        "icon": "🧭",
+        "default": 101.3,
+        "min": 25.0,
+        "max": 105.0,
+        "step": 0.1,
+        "decimals": 1,
+        "format": "%.1f",
+        "qp_key": "p",
+        "label_key": "pressure_label",
+        "default_label": "Áp suất Khoang",
+        "default_label_en": "Cabin Pressure",
+        "help_key": "pressure_help",
+    },
+    "v_val": {
+        "icon": "💨",
+        "default": 10.0,
+        "min": 0.0,
+        "max": 50.0,
+        "step": 0.5,
+        "decimals": 1,
+        "format": "%.1f",
+        "qp_key": "v",
+        "label_key": "airflow_label",
+        "default_label": "Vận tốc Gió",
+        "default_label_en": "Airflow Velocity",
+        "help_key": "airflow_help",
+    },
+    "temp_val": {
+        "icon": "🌡️",
+        "default": 21.0,
+        "min": 10.0,
+        "max": 50.0,
+        "step": 0.5,
+        "decimals": 1,
+        "format": "%.1f",
+        "qp_key": "t",
+        "label_key": "temp_label",
+        "default_label": "Nhiệt độ Khoang",
+        "default_label_en": "Cabin Temperature",
+        "help_key": "temp_help",
+    },
+    "rh_val": {
+        "icon": "💧",
+        "default": 45.0,
+        "min": 10.0,
+        "max": 90.0,
+        "step": 1.0,
+        "decimals": 1,
+        "format": "%.1f",
+        "qp_key": "rh",
+        "label_key": "rh_label",
+        "default_label": "Độ ẩm Tương đối (RH)",
+        "default_label_en": "Relative Humidity (RH)",
+        "help_key": "rh_help",
+    },
+}
+
+PRESET_DEFAULTS = {
+    "ISS": {"g": 0.0, "o2": 21.0, "p": 101.3, "v": 10.0, "t": 21.0, "rh": 45.0},
+    "LUNAR_ROVER": {"g": 0.16, "o2": 30.0, "p": 70.3, "v": 12.0, "t": 21.0, "rh": 45.0},
+    "ARTEMIS": {"g": 0.16, "o2": 34.0, "p": 56.5, "v": 15.0, "t": 21.0, "rh": 45.0},
+    "SPACESUIT": {"g": 0.16, "o2": 100.0, "p": 29.6, "v": 6.0, "t": 21.0, "rh": 45.0},
+    "MARS": {"g": 0.38, "o2": 26.0, "p": 70.0, "v": 8.0, "t": 21.0, "rh": 45.0},
+    "EARTH": {"g": 1.0, "o2": 21.0, "p": 101.3, "v": 0.0, "t": 21.0, "rh": 45.0},
+}
+
+PRESET_PROFILES = {
+    "ISS":         {"gravity_val": 0.00, "o2_val": 21.0, "p_val": 101.3, "v_val": 10.0, "temp_val": 21.0, "rh_val": 45.0},
+    "LUNAR_ROVER": {"gravity_val": 0.16, "o2_val": 30.0, "p_val": 70.3,  "v_val": 12.0, "temp_val": 21.0, "rh_val": 45.0},
+    "ARTEMIS":     {"gravity_val": 0.16, "o2_val": 34.0, "p_val": 56.5,  "v_val": 15.0, "temp_val": 21.0, "rh_val": 45.0},
+    "SPACESUIT":   {"gravity_val": 0.16, "o2_val": 100.0, "p_val": 29.6, "v_val": 6.0,  "temp_val": 21.0, "rh_val": 45.0},
+    "MARS":        {"gravity_val": 0.38, "o2_val": 26.0, "p_val": 70.0,  "v_val": 8.0,  "temp_val": 21.0, "rh_val": 45.0},
+    "EARTH":       {"gravity_val": 1.00, "o2_val": 21.0, "p_val": 101.3, "v_val": 0.0,  "temp_val": 21.0, "rh_val": 45.0},
+}
+VALID_TABS = ["sim", "morph", "rag", "matrix", "research"]
+
+# Early resolve language for page configuration
+_init_lang = "en"
+try:
+    if "lang" in st.session_state:
+        _init_lang = st.session_state.lang
+    elif hasattr(st, "query_params") and "lang" in st.query_params and st.query_params["lang"] in ("en", "vi"):
+        _init_lang = st.query_params["lang"]
+except Exception:
+    pass
 
 st.set_page_config(
-    page_title=t["page_title"],
-    page_icon="https://www.nasa.gov/wp-content/plugins/nasa-hds-core-setup/assets/favicons/favicon-32x32.png",
+    page_title=get_i18n(_init_lang)["page_title"],
+    page_icon="🔥",  # Local emoji favicon generates inline SVG data URI, eliminating 404 console errors
     layout="wide",
     initial_sidebar_state="auto",
 )
+
+# ==============================================================================
+# MILESTONE M1: SESSION STATE & URL QUERY PARAMS BOOTSTRAP (F5 PERSISTENCE)
+# ==============================================================================
+if "_m1_state_initialized" not in st.session_state:
+    st.session_state._m1_state_initialized = True
+    try:
+        qp = st.query_params
+    except Exception:
+        qp = {}
+
+    # 1. Language Resolution
+    req_lang = qp.get("lang", _init_lang) if hasattr(qp, "get") else _init_lang
+    st.session_state.lang = req_lang if req_lang in ("en", "vi") else "en"
+
+    # 2. Preset Resolution
+    req_preset = qp.get("preset", "ISS") if hasattr(qp, "get") else "ISS"
+    if req_preset not in PRESET_DEFAULTS and req_preset != "CUSTOM":
+        req_preset = "ISS"
+    st.session_state.preset_selector = req_preset
+
+    # Baseline values from preset
+    baseline = PRESET_DEFAULTS.get(req_preset, PRESET_DEFAULTS["ISS"])
+
+    # 3. Numeric Parameter Resolution (URL query param overrides baseline)
+    param_parsers = [
+        ("g", "gravity_val", float, baseline["g"]),
+        ("o2", "o2_val", float, baseline["o2"]),
+        ("p", "p_val", float, baseline["p"]),
+        ("v", "v_val", float, baseline["v"]),
+        ("t", "temp_val", float, baseline["t"]),
+        ("rh", "rh_val", float, baseline["rh"]),
+    ]
+    is_custom = (req_preset == "CUSTOM")
+    for q_key, s_key, caster, base_val in param_parsers:
+        cfg = TELEMETRY_CONFIG[s_key]
+        min_b = float(cfg["min"])
+        max_b = float(cfg["max"])
+        if hasattr(qp, "get") and q_key in qp:
+            try:
+                parsed_val = caster(qp[q_key])
+                if not math.isfinite(parsed_val):
+                    parsed_val = float(base_val)
+                else:
+                    parsed_val = max(min_b, min(max_b, parsed_val))
+                st.session_state[s_key] = parsed_val
+                if not math.isclose(parsed_val, base_val, abs_tol=1e-3) and req_preset != "CUSTOM":
+                    is_custom = True
+            except (ValueError, TypeError):
+                st.session_state[s_key] = max(min_b, min(max_b, float(base_val)))
+        else:
+            st.session_state[s_key] = max(min_b, min(max_b, float(base_val)))
+
+        # Pre-initialize paired slider and number input widget states
+        st.session_state[f"{s_key}_slider"] = st.session_state[s_key]
+        st.session_state[f"{s_key}_num"] = st.session_state[s_key]
+
+    has_explicit_valid_preset = hasattr(qp, "get") and qp.get("preset") in PRESET_DEFAULTS
+    if not has_explicit_valid_preset or is_custom:
+        detected_preset = "CUSTOM"
+        for p_name, p_vals in PRESET_PROFILES.items():
+            if all(
+                math.isclose(
+                    round(float(st.session_state[k]), TELEMETRY_CONFIG[k]["decimals"]),
+                    p_val,
+                    abs_tol=1e-3,
+                )
+                for k, p_val in p_vals.items()
+            ):
+                detected_preset = p_name
+                break
+        st.session_state.preset_selector = detected_preset
+
+    # 4. Active Tab Resolution & Compare Expander Deep-Link
+    raw_tab = qp.get("tab", "sim") if hasattr(qp, "get") else "sim"
+    q_tab = str(raw_tab).strip() if raw_tab is not None else "sim"
+    if q_tab.lower() == "compare":
+        st.session_state.active_tab_id = "sim"
+        st.session_state["expand_compare_on_load"] = True
+    else:
+        st.session_state.active_tab_id = q_tab if q_tab in VALID_TABS else "sim"
+        st.session_state["expand_compare_on_load"] = False
+
+lang = st.session_state.lang
+t = get_i18n(lang)
 
 render_html("""
 <style>
@@ -93,7 +355,33 @@ render_html("""
     
     html, body, [class*="css"], .stMarkdown { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Plus Jakarta Sans', sans-serif !important; letter-spacing: -0.02em; color: #FFFFFF !important; }
-    :root { --nasa-blue: #0B3D91; --nasa-red: #E03C31; --cyan-accent: #38BDF8; --cyan-glow: #0EA5E9; --blue-glow: #0284C7; --blue-deep: #0369A1; --bg-space-base: #060D1A; --bg-space-card: rgba(13, 25, 48, 0.78); --bg-space-subcard: rgba(15, 30, 58, 0.65); --border-subtle: rgba(148, 163, 184, 0.18); --border-cyan: rgba(56, 189, 248, 0.30); --border-specular: rgba(255, 255, 255, 0.14); --green-accent: #10B981; --purple-accent: #A855F7; --orange-accent: #F59E0B; --text-primary: #F8FAFC; --text-secondary: #E2E8F0; --text-muted: #94A3B8; }
+    :root {
+        --nasa-blue: #0B3D91;
+        --nasa-red: #E03C31;
+        --cyan-accent: #38BDF8;
+        --cyan-glow: #0EA5E9;
+        --blue-glow: #0284C7;
+        --blue-deep: #0369A1;
+        --bg-space-base: #060D1A;
+        --bg-space-card: rgba(13, 25, 48, 0.78);
+        --bg-space-subcard: rgba(15, 30, 58, 0.65);
+        --border-subtle: rgba(148, 163, 184, 0.18);
+        --border-cyan: rgba(56, 189, 248, 0.30);
+        --border-specular: rgba(255, 255, 255, 0.14);
+        --green-accent: #10B981;
+        --purple-accent: #A855F7;
+        --orange-accent: #F59E0B;
+        --text-primary: #F8FAFC;
+        --text-secondary: #E2E8F0;
+        --text-muted: #94A3B8;
+        --holo-cyan: #38BDF8; /* Softened from #00F2FF to eliminate glare */
+        --holo-blue: #0284C7;
+        --holo-purple: #A855F7;
+        --holo-pink: #EC4899;
+        --holo-bg-deep: #030712;
+        --holo-glass: rgba(10, 22, 48, 0.62);
+        --holo-glass-hover: rgba(16, 34, 72, 0.78);
+    }
     [data-testid="stCaptionContainer"], .stCaption { color: #BAE6FD !important; opacity: 0.92 !important; }
     header[data-testid="stHeader"] { background: transparent !important; height: 2.75rem !important; pointer-events: none !important; z-index: 999999 !important; }
     div[data-testid="stToolbar"] { display: flex !important; background: transparent !important; pointer-events: none !important; height: 100% !important; }
@@ -101,20 +389,155 @@ render_html("""
     header[data-testid="stHeader"] button,
     [data-testid="collapsedControl"],
     [data-testid="stExpandSidebarButton"],
-    header[data-testid="stHeader"] button[aria-label="Expand sidebar"] { display: inline-flex !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; background: rgba(16, 40, 82, 0.65) !important; border: 1px solid rgba(0, 242, 255, 0.55) !important; border-radius: 10px !important; color: #00F2FF !important; box-shadow: 0 4px 16px rgba(0, 242, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important; backdrop-filter: blur(16px) saturate(120%) !important; -webkit-backdrop-filter: blur(16px) saturate(120%) !important; transition: all 0.25s ease !important; margin-top: 4px !important; margin-left: 6px !important; cursor: pointer !important; z-index: 1000000 !important; }
+    header[data-testid="stHeader"] button[aria-label="Expand sidebar"] {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        background: rgba(16, 40, 82, 0.65) !important;
+        border: 1px solid rgba(56, 189, 248, 0.45) !important;
+        border-radius: 10px !important;
+        color: #38BDF8 !important;
+        box-shadow: 0 4px 16px rgba(56, 189, 248, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+        backdrop-filter: blur(16px) saturate(120%) !important;
+        -webkit-backdrop-filter: blur(16px) saturate(120%) !important;
+        transition: all 0.25s ease !important;
+        margin-top: 4px !important;
+        margin-left: 6px !important;
+        cursor: pointer !important;
+        z-index: 1000000 !important;
+    }
     header[data-testid="stHeader"] button:hover,
     [data-testid="collapsedControl"]:hover,
-    [data-testid="stExpandSidebarButton"]:hover { background: rgba(24, 58, 114, 0.85) !important; box-shadow: 0 0 20px rgba(0, 242, 255, 0.45) !important; }
-    .stDeployButton, .stAppDeployButton, div[data-testid="stToolbarActions"], div[data-testid="manage-app-button"], #MainMenu, footer { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; width: 0 !important; height: 0 !important; }
-    [data-testid="stSidebarCollapseButton"] button { background: rgba(16, 40, 82, 0.65) !important; border: 1px solid rgba(0, 242, 255, 0.4) !important; border-radius: 8px !important; color: #00F2FF !important; transition: all 0.2s ease !important; }
-    [data-testid="stSidebarCollapseButton"] button:hover { border-color: #00F2FF !important; box-shadow: 0 0 12px rgba(0, 242, 255, 0.4) !important; }
-    .block-container { padding-top: 1rem !important; padding-left: clamp(0.6rem, 2.5vw, 2.2rem) !important; padding-right: clamp(0.6rem, 2.5vw, 2.2rem) !important; padding-bottom: 2.5rem !important; max-width: 100% !important; }
-    
-    @media (min-width: 769px) {
-    section[data-testid="stSidebar"][data-collapsed="true"],
-        [data-testid="stSidebar"][data-collapsed="true"] { min-width: 0px !important; max-width: 0px !important; width: 0px !important; transform: translateX(-100%) !important; visibility: hidden !important; pointer-events: none !important; display: none !important; }
-    section[data-testid="stSidebar"]:not([data-collapsed="true"]) { min-width: 335px !important; max-width: 385px !important; background: linear-gradient(180deg, rgba(14, 34, 68, 0.88) 0%, rgba(10, 26, 54, 0.94) 100%) !important; backdrop-filter: blur(24px) saturate(120%) !important; -webkit-backdrop-filter: blur(24px) saturate(120%) !important; border-right: 1px solid rgba(56, 189, 248, 0.32) !important; box-shadow: 6px 0 30px rgba(2, 12, 30, 0.35) !important; visibility: visible !important; display: block !important; }
+    [data-testid="stExpandSidebarButton"]:hover {
+        background: rgba(24, 58, 114, 0.85) !important;
+        box-shadow: 0 0 18px rgba(56, 189, 248, 0.35) !important;
     }
+    .stDeployButton, .stAppDeployButton, div[data-testid="stToolbarActions"], div[data-testid="manage-app-button"], #MainMenu, footer {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+    [data-testid="stSidebarCollapseButton"] button {
+        background: rgba(16, 40, 82, 0.65) !important;
+        border: 1px solid rgba(56, 189, 248, 0.35) !important;
+        border-radius: 8px !important;
+        color: #38BDF8 !important;
+        transition: all 0.2s ease !important;
+    }
+    [data-testid="stSidebarCollapseButton"] button:hover {
+        border-color: #38BDF8 !important;
+        box-shadow: 0 0 12px rgba(56, 189, 248, 0.35) !important;
+    }
+    .block-container {
+        padding-top: 1rem !important;
+        padding-left: clamp(0.6rem, 2.5vw, 2.2rem) !important;
+        padding-right: clamp(0.6rem, 2.5vw, 2.2rem) !important;
+        padding-bottom: 2.5rem !important;
+        max-width: 100% !important;
+    }
+
+    /* ==========================================================================
+       FEATURE 5: RESPONSIVE SIDEBAR & LAYOUT BREAKPOINTS
+       ========================================================================== */
+    /* 1. Desktop Layout (> 1024px) */
+    @media (min-width: 1025px) {
+        section[data-testid="stSidebar"][data-collapsed="true"],
+        [data-testid="stSidebar"][data-collapsed="true"] {
+            min-width: 0px !important;
+            max-width: 0px !important;
+            width: 0px !important;
+            transform: translateX(-100%) !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            display: none !important;
+        }
+        section[data-testid="stSidebar"]:not([data-collapsed="true"]) {
+            min-width: 335px !important;
+            max-width: 385px !important;
+            background: linear-gradient(180deg, rgba(14, 34, 68, 0.88) 0%, rgba(10, 26, 54, 0.94) 100%) !important;
+            backdrop-filter: blur(24px) saturate(120%) !important;
+            -webkit-backdrop-filter: blur(24px) saturate(120%) !important;
+            border-right: 1px solid rgba(56, 189, 248, 0.32) !important;
+            box-shadow: 6px 0 30px rgba(2, 12, 30, 0.35) !important;
+            visibility: visible !important;
+            display: block !important;
+        }
+    }
+
+    /* 2. Responsive Reflow for Tablets & Small Laptops (<= 1024px) */
+    @media (max-width: 1024px) {
+        [data-testid="stAppViewContainer"] > .stMainContainer,
+        .stMainContainer,
+        section[data-testid="stMain"],
+        .stMain {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            flex: 1 1 100% !important;
+        }
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+            gap: 16px !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+        }
+        [data-testid="stHorizontalBlock"] > [data-testid="column"],
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
+        [data-testid="stHorizontalBlock"] > div {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            flex: 1 1 100% !important;
+        }
+        section[data-testid="stSidebar"]:not([data-collapsed="true"]) {
+            width: min(340px, 85vw) !important;
+            min-width: min(290px, 80vw) !important;
+            max-width: 90vw !important;
+        }
+        div[class*="st-key-flame_chamber_left"],
+        div[class*="st-key-flame_chamber_right"] {
+            min-height: auto !important;
+            padding: 16px 14px !important;
+            margin-bottom: 18px !important;
+        }
+        .flame-hud-stage {
+            min-height: 320px !important;
+        }
+        .table-responsive {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            touch-action: pan-x pan-y !important;
+        }
+    }
+
+    /* 3. 2x2 Grid wrapping for 4-card blocks on tablet viewports (641px - 1024px) */
+    @media (min-width: 641px) and (max-width: 1024px) {
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4)),
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(4)) {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            gap: 12px !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4)) > [data-testid="column"],
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4)) > [data-testid="stColumn"],
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(4)) > [data-testid="column"],
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(4)) > [data-testid="stColumn"] {
+            width: calc(50% - 12px) !important;
+            max-width: calc(50% - 12px) !important;
+            min-width: calc(50% - 12px) !important;
+            flex: 1 1 calc(50% - 12px) !important;
+        }
+    }
+
+    /* Common Components & Hero Elements */
     .usa-banner { background: rgba(14, 36, 74, 0.55); border: 1px solid rgba(186, 230, 253, 0.22); border-radius: 10px; padding: 6px 20px; font-size: 0.72rem; color: #E2E8F0; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(14px); }
     .nasa-nav-bar { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, rgba(22, 52, 104, 0.58) 0%, rgba(14, 36, 74, 0.45) 100%); border: 1px solid rgba(56, 189, 248, 0.38); border-top: 1px solid rgba(255, 255, 255, 0.45); border-radius: 18px; padding: 12px 24px; margin: 10px 0 20px 0; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40); backdrop-filter: blur(20px) saturate(120%); -webkit-backdrop-filter: blur(20px) saturate(120%); gap: 16px; }
     .nasa-logo-container { display: flex; align-items: center; gap: 14px; min-width: 0; }
@@ -133,26 +556,239 @@ render_html("""
     .nasa-card-value { font-size: clamp(1.35rem, 2.2vw, 2.05rem) !important; font-weight: 900; color: #FFFFFF; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.03em; line-height: 1.1; }
     .nasa-card-sub { font-size: 0.78rem; color: #E2E8F0 !important; font-family: 'JetBrains Mono', monospace; margin-top: 8px; }
     .ranking-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; font-size: 0.84rem; margin-top: 10px; }
-    .ranking-table th { white-space: nowrap !important; padding: 8px 12px !important; font-weight: 800 !important; letter-spacing: 0.06em; font-family: 'Plus Jakarta Sans', sans-serif; color: #BAE6FD !important; text-transform: uppercase; font-size: 0.72rem; }
+    .ranking-table th { white-space: nowrap !important; padding: 8px 12px !important; font-weight: 800 !important; letter-spacing: 0.06em; font-family: 'Plus Jakarta Sans', sans-serif; color: #BAE6FD !important; text-transform: uppercase; font-size: 0.72rem; overflow: visible !important; }
     .ranking-row { background: linear-gradient(90deg, rgba(24, 56, 110, 0.52) 0%, rgba(16, 40, 84, 0.42) 100%) !important; border: 1px solid rgba(56, 189, 248, 0.28); transition: all 0.25s ease; box-shadow: 0 4px 14px rgba(4, 12, 30, 0.22); backdrop-filter: blur(14px); }
-    .ranking-row:hover { background: linear-gradient(90deg, rgba(34, 76, 146, 0.68) 0%, rgba(22, 54, 110, 0.58) 100%) !important; transform: none !important; box-shadow: 0 6px 18px rgba(0, 242, 255, 0.18); border-color: rgba(0, 242, 255, 0.55) !important; }
-    .ranking-row td { padding: 14px 12px; border-top: 1px solid rgba(255, 255, 255, 0.16); border-bottom: 1px solid rgba(56, 189, 248, 0.22); }
+    .ranking-row:hover { background: linear-gradient(90deg, rgba(34, 76, 146, 0.68) 0%, rgba(22, 54, 110, 0.58) 100%) !important; transform: none !important; box-shadow: 0 6px 18px rgba(56, 189, 248, 0.18); border-color: rgba(56, 189, 248, 0.55) !important; }
+    .ranking-row td { padding: 14px 12px; border-top: 1px solid rgba(255, 255, 255, 0.16); border-bottom: 1px solid rgba(56, 189, 248, 0.22); overflow: visible !important; }
     .ranking-row td:first-child { border-left: 1px solid rgba(255, 255, 255, 0.2); border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
     .ranking-row td:last-child { border-right: 1px solid rgba(56, 189, 248, 0.25); border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
     .ranking-row-top1 td:first-child { border-left: 4px solid #FF4D4D !important; }
-    .badge-critical { background: rgba(239, 68, 68, 0.22); color: #FCA5A5; border: 1px solid #FF4D4D; padding: 4px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; }
-    .badge-high { background: rgba(245, 158, 11, 0.22); color: #FDE68A; border: 1px solid #F59E0B; padding: 4px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; }
-    .badge-moderate { background: rgba(56, 189, 248, 0.22); color: #7DD3FC; border: 1px solid #38BDF8; padding: 4px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; }
-    .badge-safe { background: rgba(16, 185, 129, 0.22); color: #6EE7B7; border: 1px solid #10B981; padding: 4px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; }
+
+    /* ==========================================================================
+       FEATURE 8: DEUTERANOPIA DUAL-CODING RISK BADGES (WCAG 2.1 SC 1.4.1)
+       ========================================================================== */
+    .badge-critical {
+        background: rgba(239, 68, 68, 0.22) !important;
+        color: #FCA5A5 !important;
+        border: 1px solid #EF4444 !important;
+        border-left: 3.5px solid #EF4444 !important;
+        padding: 3px 8px !important;
+        border-radius: 6px !important;
+        font-weight: 800 !important;
+        font-size: 0.72rem !important;
+        text-transform: uppercase !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+    .badge-critical::before {
+        content: "🚨";
+        font-size: 0.72rem;
+    }
+
+    .badge-high {
+        background: rgba(245, 158, 11, 0.22) !important;
+        color: #FDE68A !important;
+        border: 1px solid #F59E0B !important;
+        border-left: 3.5px solid #F59E0B !important;
+        padding: 3px 8px !important;
+        border-radius: 6px !important;
+        font-weight: 800 !important;
+        font-size: 0.72rem !important;
+        text-transform: uppercase !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+    .badge-high::before {
+        content: "⚠️";
+        font-size: 0.72rem;
+    }
+
+    .badge-moderate {
+        background: rgba(56, 189, 248, 0.22) !important;
+        color: #7DD3FC !important;
+        border: 1px solid #38BDF8 !important;
+        border-left: 3.5px solid #38BDF8 !important;
+        padding: 3px 8px !important;
+        border-radius: 6px !important;
+        font-weight: 800 !important;
+        font-size: 0.72rem !important;
+        text-transform: uppercase !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+    .badge-moderate::before {
+        content: "ℹ️";
+        font-size: 0.72rem;
+    }
+
+    .badge-safe, .badge-nominal {
+        background: rgba(16, 185, 129, 0.22) !important;
+        color: #6EE7B7 !important;
+        border: 1px solid #10B981 !important;
+        border-left: 3.5px solid #10B981 !important;
+        padding: 3px 8px !important;
+        border-radius: 6px !important;
+        font-weight: 800 !important;
+        font-size: 0.72rem !important;
+        text-transform: uppercase !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+    .badge-safe::before, .badge-nominal::before {
+        content: "🛡️";
+        font-size: 0.72rem;
+    }
+
+    /* ==========================================================================
+       FEATURE 6: DIRECT NUMERIC INPUT STYLING (WCAG 2.1 AA)
+       ========================================================================== */
+    .stNumberInput div[data-baseweb="input"] {
+        background: rgba(11, 22, 44, 0.85) !important;
+        border: 1px solid rgba(56, 189, 248, 0.35) !important;
+        border-radius: 8px !important;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+        transition: all 0.2s ease !important;
+    }
+    .stNumberInput div[data-baseweb="input"]:focus-within {
+        border-color: #38BDF8 !important;
+        box-shadow: 0 0 10px rgba(56, 189, 248, 0.3), inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+    }
+    .stNumberInput input {
+        color: #38BDF8 !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-weight: 700 !important;
+        font-size: 0.85rem !important;
+        text-align: right !important;
+        padding-right: 6px !important;
+    }
+    .stNumberInput button {
+        color: #94A3B8 !important;
+        background: transparent !important;
+        border: none !important;
+    }
+    .stNumberInput button:hover {
+        color: #38BDF8 !important;
+        background: rgba(56, 189, 248, 0.15) !important;
+    }
+
+    /* ==========================================================================
+       FEATURE 7: ACCESSIBLE ACRONYM TOOLTIP LIBRARY (WCAG 2.1 AA)
+       ========================================================================== */
+    .nasa-acronym-abbr {
+        position: relative !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        cursor: help !important;
+        text-decoration: none !important;
+        border-bottom: 1.5px dotted rgba(56, 189, 248, 0.75) !important;
+        color: inherit !important;
+        outline: none !important;
+        transition: border-color 0.2s ease !important;
+        z-index: 100 !important;
+    }
+    .nasa-acronym-abbr:hover {
+        border-bottom-color: #38BDF8 !important;
+    }
+    .nasa-acronym-abbr:focus-visible {
+        outline: 2px solid #38BDF8 !important;
+        outline-offset: 2px !important;
+        border-radius: 3px !important;
+    }
+    .nasa-tt-card {
+        visibility: hidden;
+        opacity: 0;
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) translateY(4px);
+        width: 280px;
+        max-width: min(280px, 85vw);
+        background: rgba(11, 22, 44, 0.96) !important;
+        border: 1px solid rgba(56, 189, 248, 0.45) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.35) !important;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8), 0 0 16px rgba(56, 189, 248, 0.18) !important;
+        backdrop-filter: blur(18px) saturate(130%) !important;
+        -webkit-backdrop-filter: blur(18px) saturate(130%) !important;
+        border-radius: 10px !important;
+        padding: 10px 12px !important;
+        z-index: 999999 !important;
+        pointer-events: none;
+        transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s !important;
+        text-align: left !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        line-height: 1.4 !important;
+    }
+    .nasa-tt-card::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -6px;
+        border-width: 6px;
+        border-style: solid;
+        border-color: rgba(56, 189, 248, 0.5) transparent transparent transparent;
+    }
+    .nasa-acronym-abbr:hover .nasa-tt-card,
+    .nasa-acronym-abbr:focus .nasa-tt-card,
+    .nasa-acronym-abbr:active .nasa-tt-card {
+        visibility: visible !important;
+        opacity: 1 !important;
+        transform: translateX(-50%) translateY(0) !important;
+        pointer-events: auto !important;
+    }
+    .nasa-tt-badge {
+        display: inline-block !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.65rem !important;
+        font-weight: 800 !important;
+        color: #38BDF8 !important;
+        background: rgba(56, 189, 248, 0.15) !important;
+        border: 1px solid rgba(56, 189, 248, 0.35) !important;
+        border-radius: 4px !important;
+        padding: 1px 6px !important;
+        margin-bottom: 4px !important;
+    }
+    .nasa-tt-title {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-size: 0.80rem !important;
+        font-weight: 800 !important;
+        color: #FFFFFF !important;
+        display: block !important;
+        margin-bottom: 4px !important;
+    }
+    .nasa-tt-desc {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.72rem !important;
+        line-height: 1.45 !important;
+        color: #CBD5E1 !important;
+        display: block !important;
+    }
+    .nasa-tt-formula {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.64rem !important;
+        color: #7DD3FC !important;
+        background: rgba(15, 23, 42, 0.7) !important;
+        border-radius: 4px !important;
+        padding: 4px 6px !important;
+        margin-top: 6px !important;
+        border-left: 2px solid #38BDF8 !important;
+    }
+
+    /* Tables, Cards and Visualizer Elements */
     .matrix-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.85rem; margin-top: 14px; border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 20px; overflow: hidden; background: rgba(18, 44, 88, 0.45); backdrop-filter: blur(20px) saturate(120%); }
-    .matrix-table th { background: rgba(14, 34, 70, 0.72); color: #BAE6FD; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 0.76rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 14px 16px; border-bottom: 2px solid #00F2FF; }
+    .matrix-table th { background: rgba(14, 34, 70, 0.72); color: #BAE6FD; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 0.76rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 14px 16px; border-bottom: 2px solid #38BDF8; }
     .matrix-table td { padding: 16px 16px; border-bottom: 1px solid rgba(186, 230, 253, 0.14); vertical-align: top; line-height: 1.6; }
-    .matrix-table tr:hover td { background: rgba(0, 242, 255, 0.08); }
+    .matrix-table tr:hover td { background: rgba(56, 189, 248, 0.08); }
     .rag-result-card { background: linear-gradient(135deg, rgba(24, 56, 110, 0.50) 0%, rgba(16, 38, 80, 0.40) 100%); border: 1px solid rgba(56, 189, 248, 0.32); border-top: 1px solid rgba(255, 255, 255, 0.35); border-left: 4px solid #0284C7; border-radius: 18px; padding: 20px 22px; margin-bottom: 16px; backdrop-filter: blur(18px) saturate(120%); transition: all 0.25s ease; }
-    .rag-result-card:hover { transform: none !important; border-color: rgba(0, 242, 255, 0.65); box-shadow: 0 8px 22px rgba(0, 242, 255, 0.16); }
+    .rag-result-card:hover { transform: none !important; border-color: rgba(56, 189, 248, 0.65); box-shadow: 0 8px 22px rgba(56, 189, 248, 0.16); }
     .rag-citation-meta { font-size: 0.74rem; font-family: 'JetBrains Mono', monospace; color: #CBD5E1; display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; }
     .rag-quote { font-size: 0.88rem; color: #F8FAFC; line-height: 1.65; background: rgba(12, 30, 64, 0.48); padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.22); border-left: 3px solid #38BDF8; margin-top: 10px; }
-    .flame-viz-container { background: radial-gradient(circle at 50% 45%, rgba(14, 116, 144, 0.35) 0%, rgba(15, 36, 76, 0.65) 100%) !important; border: 1px solid rgba(0, 242, 255, 0.42) !important; border-top: 1px solid rgba(255, 255, 255, 0.4) !important; border-radius: 24px; padding: 24px; text-align: center; box-shadow: inset 0 0 40px rgba(0, 242, 255, 0.14), 0 14px 34px rgba(4, 12, 30, 0.3) !important; backdrop-filter: blur(20px) saturate(120%); }
+    .flame-viz-container { background: radial-gradient(circle at 50% 45%, rgba(14, 116, 144, 0.35) 0%, rgba(15, 36, 76, 0.65) 100%) !important; border: 1px solid rgba(56, 189, 248, 0.42) !important; border-top: 1px solid rgba(255, 255, 255, 0.4) !important; border-radius: 24px; padding: 24px; text-align: center; box-shadow: inset 0 0 40px rgba(56, 189, 248, 0.14), 0 14px 34px rgba(4, 12, 30, 0.3) !important; backdrop-filter: blur(20px) saturate(120%); }
     .nasa-cool-flame-callout { background: linear-gradient(135deg, rgba(88, 28, 135, 0.48) 0%, rgba(30, 58, 138, 0.48) 100%); border: 1px solid rgba(192, 132, 252, 0.5); border-left: 6px solid #C084FC; border-radius: 18px; padding: 20px 24px; margin-bottom: 20px; backdrop-filter: blur(18px); box-shadow: 0 10px 30px rgba(168, 85, 247, 0.2); }
     .nasa-footer, .briefing-sheet { background: linear-gradient(135deg, rgba(20, 48, 96, 0.52) 0%, rgba(12, 30, 64, 0.45) 100%) !important; border: 1px solid rgba(56, 189, 248, 0.32) !important; border-top: 1px solid rgba(255, 255, 255, 0.35) !important; border-radius: 24px; padding: 32px; color: #E2E8F0; backdrop-filter: blur(22px) saturate(120%); box-shadow: 0 16px 40px rgba(4, 12, 30, 0.3); }
     .tunnel-container { margin-bottom: 24px !important; padding: 18px 22px !important; border: 1px solid rgba(56, 189, 248, 0.28) !important; background: linear-gradient(180deg, rgba(13, 25, 48, 0.92) 0%, rgba(6, 13, 26, 0.96) 100%) !important; border-radius: 14px !important; box-shadow: 0 12px 32px rgba(2, 6, 18, 0.35) !important; }
@@ -161,7 +797,7 @@ render_html("""
     .specimen-subcard { border: 1px solid rgba(56, 189, 248, 0.25) !important; background: rgba(13, 25, 48, 0.78) !important; border-radius: 8px !important; padding: 16px !important; margin-top: 8px !important; backdrop-filter: blur(12px) !important; }
     .mobile-swipe-badge { display: none; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.75rem; font-weight: 700; color: #38BDF8; background: rgba(56, 189, 248, 0.12); border: 1px dashed rgba(56, 189, 248, 0.35); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; text-align: center; }
     .stTabs [data-baseweb="tab-list"],
-    [data-testid="stTabs"] [role="tablist"] { display: flex !important; justify-content: center !important; gap: 12px !important; background: rgba(16, 40, 84, 0.55) !important; padding: 8px 16px !important; border-radius: 9999px !important; border: 1px solid rgba(56, 189, 248, 0.38) !important; border-top: 1px solid rgba(255, 255, 255, 0.4) !important; box-shadow: 0 10px 28px rgba(4, 12, 30, 0.28), 0 0 20px rgba(0, 242, 255, 0.12) !important; backdrop-filter: blur(20px) saturate(120%) !important; margin-bottom: 24px !important; }
+    [data-testid="stTabs"] [role="tablist"] { display: flex !important; justify-content: center !important; gap: 12px !important; background: rgba(16, 40, 84, 0.55) !important; padding: 8px 16px !important; border-radius: 9999px !important; border: 1px solid rgba(56, 189, 248, 0.38) !important; border-top: 1px solid rgba(255, 255, 255, 0.4) !important; box-shadow: 0 10px 28px rgba(4, 12, 30, 0.28), 0 0 20px rgba(56, 189, 248, 0.12) !important; backdrop-filter: blur(20px) saturate(120%) !important; margin-bottom: 24px !important; }
     .react-aria-SelectionIndicator,
     [data-testid="stTab"] .react-aria-SelectionIndicator,
     [data-testid="stTab"][data-selected] .react-aria-SelectionIndicator,
@@ -173,7 +809,7 @@ render_html("""
     div[data-testid="stTabs"] [role="tablist"]::before,
     div[data-testid="stTabs"] [role="tablist"] > div::after,
     div[data-testid="stTabs"] [role="tablist"] > div::before,
-        button[data-testid="stTab"],
+    button[data-testid="stTab"],
     [data-testid="stTab"],
     [role="tab"] { border-bottom: none !important; border: none !important; outline: none !important; box-shadow: none !important; }
     button[data-testid="stTab"][aria-selected="true"],
@@ -191,17 +827,17 @@ render_html("""
     div[data-baseweb="tab-highlight"] { display: none !important; }
     [data-testid="stTab"] { flex: 1 1 0px !important; max-width: 250px !important; justify-content: center !important; border-radius: 12px !important; padding: 10px 18px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; font-weight: 700 !important; font-size: 0.88rem !important; color: #94A3B8 !important; background: rgba(13, 25, 48, 0.45) !important; border: 1px solid rgba(148, 163, 184, 0.18) !important; backdrop-filter: blur(12px) !important; transition: all 0.25s ease !important; }
     [data-testid="stTab"]:hover { color: #38BDF8 !important; background: rgba(14, 165, 233, 0.15) !important; border-color: rgba(56, 189, 248, 0.4) !important; transform: none !important; }
-    [data-testid="stTab"][aria-selected="true"] { border-radius: 12px !important; background: linear-gradient(135deg, rgba(14, 165, 233, 0.3) 0%, rgba(2, 132, 199, 0.18) 100%) !important; color: #FFFFFF !important; font-weight: 700 !important; border: 1.5px solid #00F2FF !important; box-shadow: 0 0 18px rgba(0, 242, 255, 0.4) !important; }
-    .bento-telemetry-card { background: rgba(13, 25, 48, 0.72) !important; border: 1px solid rgba(56, 189, 248, 0.25) !important; border-top: 2.5px solid #00F2FF !important; border-radius: 14px !important; padding: 14px 16px !important; backdrop-filter: blur(16px) !important; position: relative !important; overflow: hidden !important; box-shadow: 0 8px 24px rgba(2, 6, 23, 0.45) !important; transition: all 0.25s ease !important; }
-    .bento-telemetry-card:hover { border-color: #00F2FF !important; box-shadow: 0 10px 28px rgba(0, 242, 255, 0.25) !important; }
+    [data-testid="stTab"][aria-selected="true"] { border-radius: 12px !important; background: linear-gradient(135deg, rgba(14, 165, 233, 0.25) 0%, rgba(2, 132, 199, 0.15) 100%) !important; color: #FFFFFF !important; font-weight: 700 !important; border: 1.5px solid #38BDF8 !important; box-shadow: 0 2px 12px rgba(56, 189, 248, 0.25) !important; transform: none !important; }
+    .bento-telemetry-card { background: rgba(13, 25, 48, 0.72) !important; border: 1px solid rgba(56, 189, 248, 0.25) !important; border-top: 2.5px solid #38BDF8 !important; border-radius: 14px !important; padding: 14px 16px !important; backdrop-filter: blur(16px) !important; position: relative !important; overflow: hidden !important; box-shadow: 0 8px 24px rgba(2, 6, 23, 0.45) !important; transition: all 0.25s ease !important; }
+    .bento-telemetry-card:hover { border-color: #38BDF8 !important; box-shadow: 0 8px 24px rgba(2, 6, 23, 0.5), 0 0 12px rgba(56, 189, 248, 0.18) !important; }
     .bento-card-title { font-size: 0.71rem !important; font-weight: 800 !important; letter-spacing: 0.05em !important; color: #94A3B8 !important; text-transform: uppercase !important; font-family: 'Plus Jakarta Sans', sans-serif !important; margin-bottom: 6px !important; display: flex !important; justify-content: space-between !important; align-items: center !important; }
     .bento-card-val { font-size: 1.55rem !important; font-weight: 800 !important; font-family: 'Plus Jakarta Sans', sans-serif !important; color: #FFFFFF !important; line-height: 1.2 !important; }
     .bento-card-sub { font-size: 0.74rem !important; color: #38BDF8 !important; margin-top: 5px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
-    .bento-env-card { background: rgba(11, 23, 44, 0.88) !important; border-radius: 18px !important; padding: 22px 20px !important; backdrop-filter: blur(22px) !important; border: 1px solid rgba(148, 163, 184, 0.22) !important; box-shadow: 0 12px 32px rgba(2, 6, 23, 0.55), inset 0 0 16px rgba(0, 242, 255, 0.04) !important; height: 100% !important; transition: all 0.25s ease !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; }
+    .bento-env-card { background: rgba(11, 23, 44, 0.88) !important; border-radius: 18px !important; padding: 22px 20px !important; backdrop-filter: blur(22px) !important; border: 1px solid rgba(148, 163, 184, 0.22) !important; box-shadow: 0 12px 32px rgba(2, 6, 23, 0.55), inset 0 0 16px rgba(56, 189, 248, 0.04) !important; height: 100% !important; transition: all 0.25s ease !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; }
     .bento-env-card.earth-env { border-top: 4px solid #F59E0B !important; border-left: 1px solid rgba(245, 158, 11, 0.4) !important; }
-    .bento-env-card.iss-env { border-top: 4px solid #00F2FF !important; border-left: 1px solid rgba(0, 242, 255, 0.4) !important; }
+    .bento-env-card.iss-env { border-top: 4px solid #38BDF8 !important; border-left: 1px solid rgba(56, 189, 248, 0.35) !important; }
     .bento-env-card.moon-env { border-top: 4px solid #EF4444 !important; border-left: 1px solid rgba(239, 68, 68, 0.45) !important; }
-    .bento-env-card:hover { transform: translateY(-2px) !important; box-shadow: 0 16px 40px rgba(2, 6, 23, 0.7), 0 0 22px rgba(0, 242, 255, 0.2) !important; border-color: rgba(0, 242, 255, 0.45) !important; }
+    .bento-env-card:hover { transform: translateY(-2px) !important; box-shadow: 0 16px 40px rgba(2, 6, 23, 0.7), 0 0 22px rgba(56, 189, 248, 0.2) !important; border-color: rgba(56, 189, 248, 0.45) !important; }
     .bento-env-header { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 14px !important; border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important; padding-bottom: 12px !important; gap: 8px !important; }
     .bento-env-title { font-family: 'Plus Jakarta Sans', sans-serif !important; font-weight: 800 !important; font-size: 1.15rem !important; color: #FFFFFF !important; line-height: 1.3 !important; letter-spacing: -0.01em !important; }
     .bento-env-badge { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.76rem !important; font-weight: 800 !important; padding: 4px 10px !important; border-radius: 99px !important; white-space: nowrap !important; letter-spacing: 0.04em !important; }
@@ -210,25 +846,26 @@ render_html("""
     .bento-env-item.hazard-item { background: rgba(239, 68, 68, 0.10) !important; border: 1px solid rgba(239, 68, 68, 0.32) !important; border-left: 3.5px solid #EF4444 !important; }
     .bento-env-item-label { display: flex !important; align-items: center !important; gap: 6px !important; font-weight: 800 !important; font-size: 0.84rem !important; margin-bottom: 5px !important; text-transform: uppercase !important; letter-spacing: 0.04em !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
     .rag-chip-card { background: rgba(13, 25, 48, 0.72) !important; border: 1px solid rgba(56, 189, 248, 0.22) !important; border-radius: 14px !important; padding: 12px 14px !important; backdrop-filter: blur(14px) !important; transition: all 0.25s ease !important; height: 100% !important; margin-bottom: 8px !important; }
-    .rag-chip-card:hover { border-color: #00F2FF !important; background: rgba(14, 165, 233, 0.18) !important; box-shadow: 0 0 16px rgba(0, 242, 255, 0.3) !important; }
-    .nasa-directive-container { background: linear-gradient(135deg, rgba(11, 28, 62, 0.88) 0%, rgba(6, 15, 36, 0.94) 100%) !important; border: 1.5px solid rgba(0, 242, 255, 0.4) !important; border-radius: 16px !important; padding: 18px 20px !important; box-shadow: 0 14px 36px rgba(2, 6, 23, 0.6), inset 0 0 20px rgba(0, 242, 255, 0.08) !important; backdrop-filter: blur(20px) !important; margin-bottom: 16px !important; }
+    .rag-chip-card:hover { border-color: #38BDF8 !important; background: rgba(14, 165, 233, 0.18) !important; box-shadow: 0 0 16px rgba(56, 189, 248, 0.25) !important; }
+    .nasa-directive-container { background: linear-gradient(135deg, rgba(11, 28, 62, 0.88) 0%, rgba(6, 15, 36, 0.94) 100%) !important; border: 1.5px solid rgba(56, 189, 248, 0.4) !important; border-radius: 16px !important; padding: 18px 20px !important; box-shadow: 0 14px 36px rgba(2, 6, 23, 0.6), inset 0 0 20px rgba(56, 189, 248, 0.08) !important; backdrop-filter: blur(20px) !important; margin-bottom: 16px !important; }
     .nasa-directive-header { display: flex !important; justify-content: space-between !important; align-items: center !important; border-bottom: 1px solid rgba(56, 189, 248, 0.25) !important; padding-bottom: 10px !important; margin-bottom: 14px !important; flex-wrap: wrap !important; gap: 8px !important; }
     .nasa-directive-block { background: rgba(13, 25, 48, 0.65) !important; border-radius: 12px !important; padding: 14px 16px !important; margin-bottom: 12px !important; border: 1px solid rgba(148, 163, 184, 0.16) !important; }
-    .nasa-directive-block.block-kinetics { border-left: 4px solid #00F2FF !important; }
+    .nasa-directive-block.block-kinetics { border-left: 4px solid #38BDF8 !important; }
     .nasa-directive-block.block-standards { border-left: 4px solid #F59E0B !important; }
     .nasa-directive-block.block-emergency { border-left: 4px solid #EF4444 !important; background: rgba(239, 68, 68, 0.08) !important; }
     .directive-block-title { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.86rem !important; font-weight: 800 !important; letter-spacing: 0.03em !important; margin-bottom: 6px !important; display: flex !important; align-items: center !important; gap: 6px !important; }
     .directive-block-body { font-size: 0.84rem !important; line-height: 1.6 !important; color: #E2E8F0 !important; }
+
     /* Dual Chamber Aerospace HUD Cockpit Panels (Tab 2) */
     div[class*="st-key-flame_chamber_left"],
     div[class*="st-key-flame_chamber_right"] {
         background: rgba(11, 23, 44, 0.85) !important;
         border: 1px solid rgba(56, 189, 248, 0.28) !important;
-        border-top: 3.5px solid #00F2FF !important;
+        border-top: 3.5px solid #38BDF8 !important;
         border-radius: 16px !important;
         padding: 18px 20px 16px 20px !important;
         backdrop-filter: blur(20px) saturate(120%) !important;
-        box-shadow: 0 10px 30px rgba(2, 6, 23, 0.5), inset 0 0 20px rgba(0, 242, 255, 0.05) !important;
+        box-shadow: 0 10px 30px rgba(2, 6, 23, 0.5), inset 0 0 20px rgba(56, 189, 248, 0.05) !important;
         margin-bottom: 24px !important;
         display: flex !important;
         flex-direction: column !important;
@@ -238,8 +875,8 @@ render_html("""
     }
     div[class*="st-key-flame_chamber_left"]:hover,
     div[class*="st-key-flame_chamber_right"]:hover {
-        border-color: rgba(0, 242, 255, 0.55) !important;
-        box-shadow: 0 14px 36px rgba(2, 6, 23, 0.65), 0 0 20px rgba(0, 242, 255, 0.15) !important;
+        border-color: rgba(56, 189, 248, 0.55) !important;
+        box-shadow: 0 14px 36px rgba(2, 6, 23, 0.65), 0 0 20px rgba(56, 189, 248, 0.15) !important;
     }
     .flame-hud-stage {
         background: radial-gradient(ellipse at 50% 50%, rgba(14, 116, 144, 0.18) 0%, rgba(6, 14, 30, 0.95) 100%) !important;
@@ -285,26 +922,12 @@ render_html("""
     div[class*="st-key-flame_chamber_right"] div[role="radiogroup"] label:has(input:checked) {
         background: linear-gradient(135deg, rgba(14, 165, 233, 0.35) 0%, rgba(2, 132, 199, 0.22) 100%) !important;
         color: #FFFFFF !important;
-        border: 1px solid #00F2FF !important;
-        box-shadow: 0 0 10px rgba(0, 242, 255, 0.3) !important;
+        border: 1px solid #38BDF8 !important;
+        box-shadow: 0 0 10px rgba(56, 189, 248, 0.25) !important;
     }
-    @media (max-width: 1100px) {
-        div[data-testid="stHorizontalBlock"]:has(.bento-env-card) {
-            flex-direction: column !important;
-            gap: 16px !important;
-        }
-        div[data-testid="stHorizontalBlock"]:has(.bento-env-card) > [data-testid="stColumn"],
-        div[data-testid="stHorizontalBlock"]:has(.bento-env-card) > [data-testid="column"],
-        div[data-testid="stHorizontalBlock"]:has(.bento-env-card) > div {
-            width: 100% !important;
-            max-width: 100% !important;
-            min-width: 100% !important;
-            flex: 1 1 100% !important;
-        }
-    }
-    .hud-specimen-card { background: rgba(11, 23, 44, 0.85) !important; border: 1px solid rgba(56, 189, 248, 0.35) !important; border-top: 3px solid #00F2FF !important; border-radius: 16px !important; padding: 18px !important; backdrop-filter: blur(20px) !important; box-shadow: 0 10px 30px rgba(2, 6, 23, 0.5) !important; }
+    .hud-specimen-card { background: rgba(11, 23, 44, 0.85) !important; border: 1px solid rgba(56, 189, 248, 0.35) !important; border-top: 3px solid #38BDF8 !important; border-radius: 16px !important; padding: 18px !important; backdrop-filter: blur(20px) !important; box-shadow: 0 10px 30px rgba(2, 6, 23, 0.5) !important; }
     .stButton > button:not([kind="primary"]), [data-testid="baseButton-secondary"] { background: rgba(22, 52, 104, 0.52) !important; color: #F8FAFC !important; border: 1px solid rgba(125, 211, 252, 0.35) !important; border-top: 1px solid rgba(255, 255, 255, 0.35) !important; border-radius: 12px !important; backdrop-filter: blur(14px) !important; }
-    .stButton > button:not([kind="primary"]):hover { background: rgba(32, 72, 138, 0.72) !important; color: #00F2FF !important; border-color: #00F2FF !important; box-shadow: 0 4px 14px rgba(0, 242, 255, 0.22) !important; transform: none !important; }
+    .stButton > button:not([kind="primary"]):hover { background: rgba(32, 72, 138, 0.72) !important; color: #38BDF8 !important; border-color: #38BDF8 !important; box-shadow: 0 4px 14px rgba(56, 189, 248, 0.22) !important; transform: none !important; }
     .stTextInput > div > div > input { border-radius: 12px !important; background: rgba(20, 48, 96, 0.55) !important; border: 1px solid rgba(125, 211, 252, 0.35) !important; color: #FFFFFF !important; backdrop-filter: blur(16px) !important; }
     [data-testid="stSelectbox"] div[data-baseweb="select"] { border-radius: 12px !important; background: rgba(20, 48, 96, 0.55) !important; border: 1px solid rgba(125, 211, 252, 0.35) !important; color: #FFFFFF !important; backdrop-filter: blur(16px) !important; min-height: 44px !important; height: auto !important; }
     [data-testid="stSelectbox"] div[data-baseweb="select"] > div { min-height: 42px !important; height: auto !important; padding-top: 3px !important; padding-bottom: 3px !important; }
@@ -324,11 +947,11 @@ render_html("""
     div[data-baseweb="popover"] {
         max-width: 96vw !important;
     }
-    [data-testid="stSelectboxVirtualDropdown"], [data-baseweb="popover"] > div, div[class*="e1oobldh4"], div:has(> [role="listbox"]) { background: rgba(14, 36, 76, 0.98) !important; backdrop-filter: blur(24px) saturate(140%) !important; -webkit-backdrop-filter: blur(24px) saturate(140%) !important; border: 1px solid rgba(0, 242, 255, 0.5) !important; border-radius: 14px !important; min-width: 290px !important; max-width: 95vw !important; width: max-content !important; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85), 0 0 20px rgba(0, 242, 255, 0.25) !important; overflow-x: hidden !important; }
+    [data-testid="stSelectboxVirtualDropdown"], [data-baseweb="popover"] > div, div[class*="e1oobldh4"], div:has(> [role="listbox"]) { background: rgba(14, 36, 76, 0.98) !important; backdrop-filter: blur(24px) saturate(140%) !important; -webkit-backdrop-filter: blur(24px) saturate(140%) !important; border: 1px solid rgba(56, 189, 248, 0.5) !important; border-radius: 14px !important; min-width: 290px !important; max-width: 95vw !important; width: max-content !important; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85), 0 0 20px rgba(56, 189, 248, 0.25) !important; overflow-x: hidden !important; }
     [role="listbox"] { min-width: 290px !important; max-width: 100% !important; width: 100% !important; padding: 6px 0 !important; }
     [role="option"], [role="option"] > div, [role="option"] span, [role="option"] p, [role="option"] div, [role="option"] * { font-family: 'Plus Jakarta Sans', sans-serif !important; font-size: 0.82rem !important; font-weight: 600 !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.38 !important; }
     [role="option"] { padding: 10px 14px !important; min-height: 42px !important; cursor: pointer !important; transition: background 0.15s ease, color 0.15s ease !important; }
-    [role="option"]:hover, [role="option"][aria-selected="true"] { background: rgba(0, 242, 255, 0.18) !important; color: #00F2FF !important; }
+    [role="option"]:hover, [role="option"][aria-selected="true"] { background: rgba(56, 189, 248, 0.18) !important; color: #38BDF8 !important; }
     [data-testid="stPlotlyChart"] .xtick text,
     [data-testid="stPlotlyChart"] .ytick text { font-family: 'JetBrains Mono', monospace !important; font-size: 9.5px !important; fill: #E2E8F0 !important; }
     [data-testid="column"],
@@ -339,7 +962,7 @@ render_html("""
     .table-responsive { display: block !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; overflow-x: auto !important; overflow-y: hidden !important; -webkit-overflow-scrolling: touch !important; touch-action: pan-x pan-y !important; margin-top: 6px !important; margin-bottom: 12px !important; border-radius: 14px !important; padding-bottom: 6px !important; }
     .table-responsive::-webkit-scrollbar { height: 6px !important; display: block !important; }
     .table-responsive::-webkit-scrollbar-track { background: rgba(14, 34, 68, 0.5) !important; border-radius: 99px !important; }
-    .table-responsive::-webkit-scrollbar-thumb { background: linear-gradient(90deg, #0284C7, #00F2FF) !important; border-radius: 99px !important; box-shadow: 0 0 10px rgba(0, 242, 255, 0.6) !important; }
+    .table-responsive::-webkit-scrollbar-thumb { background: linear-gradient(90deg, #0284C7, #38BDF8) !important; border-radius: 99px !important; box-shadow: 0 0 10px rgba(56, 189, 248, 0.4) !important; }
     .ranking-table { width: 100% !important; border-collapse: separate !important; border-spacing: 0 7px !important; font-size: 0.81rem !important; margin-top: 6px !important; }
     .ranking-table th { padding: 6px 6px !important; font-size: 0.67rem !important; letter-spacing: 0.04em !important; }
     .th-mobile { display: none !important; }
@@ -361,103 +984,97 @@ render_html("""
     .sfrs-bar-fill { height: 100% !important; border-radius: 99px !important; transition: width 0.4s ease !important; }
     .col-status { width: 80px !important; min-width: 74px !important; text-align: center !important; padding: 10px 4px !important; white-space: nowrap !important; }
     .mobile-table-hint { display: none; }
-    
+
+    /* 4. Mobile screen overlays (<= 768px) */
     @media (max-width: 768px) {
-    [data-testid="stAppViewContainer"] > .stMainContainer,
+        [data-testid="stAppViewContainer"] > .stMainContainer,
         .stMainContainer,
         section[data-testid="stMain"],
         .stMain { width: 100vw !important; max-width: 100vw !important; min-width: 100vw !important; flex: 1 1 100% !important; margin: 0 !important; padding: 0 !important; left: 0 !important; }
-    section[data-testid="stSidebar"] { position: fixed !important; top: 0 !important; left: 0 !important; bottom: 0 !important; height: 100vh !important; height: 100dvh !important; z-index: 100000 !important; transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important; }
-    section[data-testid="stSidebar"][data-collapsed="true"],
+        section[data-testid="stSidebar"] { position: fixed !important; top: 0 !important; left: 0 !important; bottom: 0 !important; height: 100vh !important; height: 100dvh !important; z-index: 100000 !important; transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important; }
+        section[data-testid="stSidebar"][data-collapsed="true"],
         [data-testid="stSidebar"][data-collapsed="true"] { transform: translateX(-105%) !important; width: 0px !important; min-width: 0px !important; max-width: 0px !important; display: none !important; visibility: hidden !important; pointer-events: none !important; }
-    section[data-testid="stSidebar"]:not([data-collapsed="true"]) { transform: translateX(0) !important; width: min(350px, 88vw) !important; min-width: min(330px, 86vw) !important; max-width: 90vw !important; display: block !important; visibility: visible !important; pointer-events: auto !important; background: linear-gradient(180deg, rgba(10, 24, 52, 0.96) 0%, rgba(6, 16, 36, 0.98) 100%) !important; backdrop-filter: blur(28px) saturate(200%) !important; -webkit-backdrop-filter: blur(28px) saturate(200%) !important; box-shadow: 12px 0 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 242, 255, 0.3) !important; border-right: 1px solid rgba(0, 242, 255, 0.45) !important; }
-    .block-container { padding-top: 3.2rem !important; padding-left: clamp(0.5rem, 2.5vw, 1rem) !important; padding-right: clamp(0.5rem, 2.5vw, 1rem) !important; padding-bottom: 2rem !important; max-width: 100vw !important; overflow-x: hidden !important; }
-    .stApp { overflow-x: hidden !important; }
-    [data-testid="stHorizontalBlock"] { flex-direction: column !important; gap: 16px !important; max-width: 100% !important; min-width: 0 !important; }
-    [data-testid="stHorizontalBlock"] > [data-testid="column"] { width: 100% !important; max-width: 100% !important; min-width: 0 !important; flex: 1 1 100% !important; }
-    .usa-banner { flex-direction: column !important; align-items: flex-start !important; padding: 8px 12px !important; font-size: 0.65rem !important; gap: 3px !important; line-height: 1.35 !important; border-radius: 8px !important; margin-bottom: 6px !important; }
-    .nasa-nav-bar { border-radius: 16px !important; padding: 10px 12px !important; margin: 6px 0 12px 0 !important; flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
-    .nasa-logo-container { width: 100% !important; justify-content: flex-start !important; gap: 10px !important; }
-    .nasa-meatball { width: 36px !important; height: 36px !important; }
-    .nasa-agency-title { font-size: 0.92rem !important; line-height: 1.2 !important; }
-    .nasa-agency-sub { font-size: 0.58rem !important; line-height: 1.25 !important; }
-    .nasa-nav-status { width: 100% !important; justify-content: space-between !important; padding-top: 8px !important; border-top: 1px solid rgba(255, 255, 255, 0.12) !important; }
-    .nasa-hero { padding: 16px 14px !important; border-radius: 16px !important; margin-top: 6px !important; margin-bottom: 14px !important; }
-    .nasa-hero-title { font-size: 1.45rem !important; line-height: 1.22 !important; }
-    .nasa-hero-desc { font-size: 0.80rem !important; line-height: 1.5 !important; }
-    .nasa-card { padding: 14px 14px !important; border-radius: 14px !important; margin-bottom: 10px !important; }
-    .nasa-card-value { font-size: 1.5rem !important; }
-    .stTabs [data-baseweb="tab-list"],
+        section[data-testid="stSidebar"]:not([data-collapsed="true"]) { transform: translateX(0) !important; width: min(350px, 88vw) !important; min-width: min(330px, 86vw) !important; max-width: 90vw !important; display: block !important; visibility: visible !important; pointer-events: auto !important; background: linear-gradient(180deg, rgba(10, 24, 52, 0.96) 0%, rgba(6, 16, 36, 0.98) 100%) !important; backdrop-filter: blur(28px) saturate(200%) !important; -webkit-backdrop-filter: blur(28px) saturate(200%) !important; box-shadow: 12px 0 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(56, 189, 248, 0.25) !important; border-right: 1px solid rgba(56, 189, 248, 0.35) !important; }
+        .block-container { padding-top: 3.2rem !important; padding-left: clamp(0.5rem, 2.5vw, 1rem) !important; padding-right: clamp(0.5rem, 2.5vw, 1rem) !important; padding-bottom: 2rem !important; max-width: 100vw !important; overflow-x: hidden !important; }
+        .stApp { overflow-x: hidden !important; }
+        .usa-banner { flex-direction: column !important; align-items: flex-start !important; padding: 8px 12px !important; font-size: 0.65rem !important; gap: 3px !important; line-height: 1.35 !important; border-radius: 8px !important; margin-bottom: 6px !important; }
+        .nasa-nav-bar { border-radius: 16px !important; padding: 10px 12px !important; margin: 6px 0 12px 0 !important; flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+        .nasa-logo-container { width: 100% !important; justify-content: flex-start !important; gap: 10px !important; }
+        .nasa-meatball { width: 36px !important; height: 36px !important; }
+        .nasa-agency-title { font-size: 0.92rem !important; line-height: 1.2 !important; }
+        .nasa-agency-sub { font-size: 0.58rem !important; line-height: 1.25 !important; }
+        .nasa-nav-status { width: 100% !important; justify-content: space-between !important; padding-top: 8px !important; border-top: 1px solid rgba(255, 255, 255, 0.12) !important; }
+        .nasa-hero { padding: 16px 14px !important; border-radius: 16px !important; margin-top: 6px !important; margin-bottom: 14px !important; }
+        .nasa-hero-title { font-size: 1.45rem !important; line-height: 1.22 !important; }
+        .nasa-hero-desc { font-size: 0.80rem !important; line-height: 1.5 !important; }
+        .nasa-card { padding: 14px 14px !important; border-radius: 14px !important; margin-bottom: 10px !important; }
+        .nasa-card-value { font-size: 1.5rem !important; }
+        .stTabs [data-baseweb="tab-list"],
         [data-testid="stTabs"] [role="tablist"] { border-radius: 12px !important; padding: 6px 8px !important; gap: 6px !important; margin-bottom: 14px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; justify-content: flex-start !important; }
-    [data-testid="stTab"] { padding: 7px 12px !important; font-size: 0.76rem !important; flex: 0 0 auto !important; }
-    .th-desktop { display: none !important; }
-    .th-mobile { display: inline !important; font-weight: 800 !important; }
-    .mat-mission-desc { display: none !important; }
-    .unit-txt { display: none !important; }
-    .sfrs-denom { display: none !important; }
-    .sfrs-bar-track { display: none !important; }
-    .mobile-table-hint, .mobile-swipe-badge { display: none !important; }
-    .table-responsive { display: block !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; padding: 0 !important; margin: 4px 0 12px 0 !important; border-radius: 10px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
-    .ranking-table { width: 100% !important; min-width: 100% !important; max-width: 100% !important; border-spacing: 0 4px !important; table-layout: fixed !important; font-size: 0.72rem !important; }
-    .ranking-table th { padding: 6px 1px !important; font-size: 0.65rem !important; text-align: center !important; white-space: nowrap !important; letter-spacing: 0 !important; }
-    .ranking-table td { padding: 6px 2px !important; font-size: 0.72rem !important; }
-    .ranking-table th:first-child,
+        [data-testid="stTab"] { padding: 7px 12px !important; font-size: 0.76rem !important; flex: 0 0 auto !important; }
+        .th-desktop { display: none !important; }
+        .th-mobile { display: inline !important; font-weight: 800 !important; }
+        .mat-mission-desc { display: none !important; }
+        .unit-txt { display: none !important; }
+        .sfrs-denom { display: none !important; }
+        .sfrs-bar-track { display: none !important; }
+        .mobile-table-hint, .mobile-swipe-badge { display: none !important; }
+        .table-responsive { display: block !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; padding: 0 !important; margin: 4px 0 12px 0 !important; border-radius: 10px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+        .ranking-table { width: 100% !important; min-width: 100% !important; max-width: 100% !important; border-spacing: 0 4px !important; table-layout: fixed !important; font-size: 0.72rem !important; }
+        .ranking-table th { padding: 6px 1px !important; font-size: 0.65rem !important; text-align: center !important; white-space: nowrap !important; letter-spacing: 0 !important; }
+        .ranking-table td { padding: 6px 2px !important; font-size: 0.72rem !important; }
+        .ranking-table th:first-child,
         .ranking-table td:first-child,
         .col-rank { width: 8% !important; min-width: 0 !important; max-width: 26px !important; text-align: center !important; padding: 6px 1px !important; font-size: 0.75rem !important; }
-    .ranking-table th:nth-child(2),
+        .ranking-table th:nth-child(2),
         .ranking-table td:nth-child(2),
         .col-mat { width: 37% !important; min-width: 0 !important; max-width: none !important; text-align: left !important; padding: 6px 3px !important; overflow: hidden !important; }
-    .mat-name-txt { font-size: 0.73rem !important; line-height: 1.18 !important; word-break: break-word !important; white-space: normal !important; }
-    .mat-sub-txt { font-size: 0.60rem !important; margin-top: 1px !important; }
-    .mat-psi-txt { display: block !important; font-size: 0.58rem !important; color: #38BDF8 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
-    .ranking-table th:nth-child(3),
+        .mat-name-txt { font-size: 0.73rem !important; line-height: 1.18 !important; word-break: break-word !important; white-space: normal !important; }
+        .mat-sub-txt { font-size: 0.60rem !important; margin-top: 1px !important; }
+        .mat-psi-txt { display: block !important; font-size: 0.58rem !important; color: #38BDF8 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+        .ranking-table th:nth-child(3),
         .ranking-table td:nth-child(3),
         .col-moc { width: 13% !important; min-width: 0 !important; text-align: center !important; padding: 6px 1px !important; font-size: 0.72rem !important; white-space: nowrap !important; }
-    .ranking-table th:nth-child(4),
+        .ranking-table th:nth-child(4),
         .ranking-table td:nth-child(4),
         .col-spread { width: 13.5% !important; min-width: 0 !important; text-align: center !important; padding: 6px 1px !important; font-size: 0.72rem !important; white-space: nowrap !important; }
-    .ranking-table th:nth-child(5),
+        .ranking-table th:nth-child(5),
         .ranking-table td:nth-child(5),
         .col-sfrs { width: 13% !important; min-width: 0 !important; text-align: center !important; padding: 6px 1px !important; white-space: nowrap !important; }
-    .sfrs-num-wrap { justify-content: center !important; }
-    .sfrs-val { font-size: 0.82rem !important; font-weight: 900 !important; }
-    .ranking-table th:nth-child(6),
+        .sfrs-num-wrap { justify-content: center !important; }
+        .sfrs-val { font-size: 0.82rem !important; font-weight: 900 !important; }
+        .ranking-table th:nth-child(6),
         .ranking-table td:nth-child(6),
         .col-status { width: 15.5% !important; min-width: 0 !important; text-align: center !important; padding: 6px 1px !important; white-space: nowrap !important; }
-    .col-status span { padding: 2px 4px !important; font-size: 0.60rem !important; border-radius: 4px !important; display: inline-block !important; white-space: nowrap !important; letter-spacing: -0.02em !important; }
-    .matrix-table { min-width: 620px !important; font-size: 0.78rem !important; }
-    div[data-testid="stPlotlyChart"] { padding: 10px 6px 6px 6px !important; border-radius: 14px !important; margin-bottom: 12px !important; }
-    /* Mobile sidebar radio button text wrapping */
-    section[data-testid="stSidebar"] div[data-testid="stRadio"] label p,
-    section[data-testid="stSidebar"] div[data-testid="stRadio"] label div {
-        white-space: normal !important;
-        word-break: break-word !important;
+        .col-status span { padding: 2px 4px !important; font-size: 0.60rem !important; border-radius: 4px !important; display: inline-block !important; white-space: nowrap !important; letter-spacing: -0.02em !important; }
+        .matrix-table { min-width: 620px !important; font-size: 0.78rem !important; }
+        div[data-testid="stPlotlyChart"] { padding: 10px 6px 6px 6px !important; border-radius: 14px !important; margin-bottom: 12px !important; }
+        section[data-testid="stSidebar"] div[data-testid="stRadio"] label p,
+        section[data-testid="stSidebar"] div[data-testid="stRadio"] label div {
+            white-space: normal !important;
+            word-break: break-word !important;
+        }
+        div[class*="st-key-flame_chamber_left"],
+        div[class*="st-key-flame_chamber_right"] {
+            min-height: auto !important;
+            padding: 14px 12px !important;
+            margin-bottom: 16px !important;
+        }
+        .flame-hud-stage {
+            min-height: 280px !important;
+            max-height: 380px !important;
+        }
     }
-    /* Mobile Chambers flexible heights & padding */
-    div[class*="st-key-flame_chamber_left"],
-    div[class*="st-key-flame_chamber_right"] {
-        min-height: auto !important;
-        padding: 14px 12px !important;
-        margin-bottom: 16px !important;
-    }
-    .flame-hud-stage {
-        min-height: 280px !important;
-        max-height: 380px !important;
-    }
-    }
-    @media (min-width: 769px) and (max-width: 1100px) {
-    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4)) { flex-wrap: wrap !important; gap: 12px !important; }
-    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4)) > [data-testid="column"] { flex: 1 1 calc(50% - 12px) !important; min-width: calc(50% - 12px) !important; }
-    }
+
     /* Main content horizontal radio switcher */
     div:not([data-testid="stSidebar"]) div[data-testid="stRadio"] > div[role="radiogroup"] {
         background: rgba(11, 29, 58, 0.75) !important;
-        border: 1px solid rgba(0, 242, 255, 0.35) !important;
+        border: 1px solid rgba(56, 189, 248, 0.35) !important;
         border-radius: 9999px !important;
         padding: 3px 8px !important;
         display: inline-flex !important;
         gap: 8px !important;
-        box-shadow: 0 0 15px rgba(0, 242, 255, 0.12) !important;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.12) !important;
     }
     div:not([data-testid="stSidebar"]) div[data-testid="stRadio"] label[data-testid="stRadioOption"],
     div:not([data-testid="stSidebar"]) div[data-testid="stRadio"] label {
@@ -471,10 +1088,10 @@ render_html("""
         transition: all 0.2s ease !important;
     }
     div:not([data-testid="stSidebar"]) div[data-testid="stRadio"] label:hover {
-        color: #00F2FF !important;
-        background: rgba(0, 242, 255, 0.1) !important;
+        color: #38BDF8 !important;
+        background: rgba(56, 189, 248, 0.1) !important;
     }
-    /* Sidebar AI Co-Pilot radio selector - Aerospace Card HUD */
+    /* Sidebar AI Co-Pilot radio selector */
     section[data-testid="stSidebar"] div[data-testid="stRadio"] > div[role="radiogroup"] {
         display: flex !important;
         flex-direction: column !important;
@@ -503,15 +1120,15 @@ render_html("""
     }
     section[data-testid="stSidebar"] div[data-testid="stRadio"] label[data-testid="stRadioOption"]:hover {
         background: rgba(16, 40, 80, 0.88) !important;
-        border-color: rgba(0, 242, 255, 0.55) !important;
-        box-shadow: 0 0 14px rgba(0, 242, 255, 0.2) !important;
+        border-color: rgba(56, 189, 248, 0.55) !important;
+        box-shadow: 0 0 14px rgba(56, 189, 248, 0.2) !important;
         transform: translateY(-1px) !important;
     }
     section[data-testid="stSidebar"] div[data-testid="stRadio"] label[data-selected="true"],
     section[data-testid="stSidebar"] div[data-testid="stRadio"] label:has(input:checked) {
         background: linear-gradient(135deg, rgba(14, 165, 233, 0.32) 0%, rgba(2, 132, 199, 0.16) 100%) !important;
-        border: 1.5px solid #00F2FF !important;
-        box-shadow: 0 0 16px rgba(0, 242, 255, 0.3), inset 0 0 12px rgba(0, 242, 255, 0.08) !important;
+        border: 1.5px solid #38BDF8 !important;
+        box-shadow: 0 0 16px rgba(56, 189, 248, 0.25), inset 0 0 12px rgba(56, 189, 248, 0.08) !important;
     }
     section[data-testid="stSidebar"] div[data-testid="stRadio"] label p,
     section[data-testid="stSidebar"] div[data-testid="stRadio"] label div {
@@ -528,38 +1145,42 @@ render_html("""
     section[data-testid="stSidebar"] div[data-testid="stRadio"] label:has(input:checked) p {
         color: #FFFFFF !important;
         font-weight: 800 !important;
-        text-shadow: 0 0 8px rgba(0, 242, 255, 0.4) !important;
+        text-shadow: 0 0 8px rgba(56, 189, 248, 0.35) !important;
     }
-    :root { --holo-cyan: #00F2FF; --holo-blue: #38BDF8; --holo-purple: #A855F7; --holo-pink: #EC4899; --holo-bg-deep: #030712; --holo-glass: rgba(10, 22, 48, 0.62); --holo-glass-hover: rgba(16, 34, 72, 0.78); }
-    .stApp { background-color: var(--holo-bg-deep) !important; background-image: radial-gradient(circle at 82% 14%, rgba(0, 242, 255, 0.14) 0%, transparent 42%), radial-gradient(circle at 18% 78%, rgba(168, 85, 247, 0.14) 0%, transparent 48%), radial-gradient(circle at 50% 42%, rgba(11, 61, 145, 0.20) 0%, transparent 60%), linear-gradient(to right, rgba(56, 189, 248, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(56, 189, 248, 0.03) 1px, transparent 1px), linear-gradient(180deg, #04091A 0%, #02050E 100%) !important; background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px, 100% 100% !important; animation: none !important; }
+
+    .stApp {
+        background-color: var(--holo-bg-deep) !important;
+        background-image: radial-gradient(circle at 82% 14%, rgba(56, 189, 248, 0.12) 0%, transparent 42%), radial-gradient(circle at 18% 78%, rgba(168, 85, 247, 0.14) 0%, transparent 48%), radial-gradient(circle at 50% 42%, rgba(11, 61, 145, 0.20) 0%, transparent 60%), linear-gradient(to right, rgba(56, 189, 248, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(56, 189, 248, 0.03) 1px, transparent 1px), linear-gradient(180deg, #04091A 0%, #02050E 100%) !important;
+        background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px, 100% 100% !important;
+        animation: none !important;
+    }
     .nasa-nav-bar, .nasa-hero, .nasa-card, div[data-testid="stPlotlyChart"], .tunnel-container, .ranking-row, .rag-result-card { animation: none !important; transform: none !important; }
-    .nasa-hero { background: linear-gradient(135deg, rgba(14, 116, 144, 0.32) 0%, rgba(18, 38, 84, 0.62) 50%, rgba(59, 7, 100, 0.38) 100%) !important; border: 1px solid rgba(0, 242, 255, 0.45) !important; border-top: 1px solid rgba(255, 255, 255, 0.55) !important; border-left: 5px solid #00F2FF !important; backdrop-filter: blur(28px) saturate(165%) !important; -webkit-backdrop-filter: blur(28px) saturate(165%) !important; }
+    .nasa-hero { background: linear-gradient(135deg, rgba(14, 116, 144, 0.32) 0%, rgba(18, 38, 84, 0.62) 50%, rgba(59, 7, 100, 0.38) 100%) !important; border: 1px solid rgba(56, 189, 248, 0.45) !important; border-top: 1px solid rgba(255, 255, 255, 0.55) !important; border-left: 5px solid #38BDF8 !important; backdrop-filter: blur(28px) saturate(165%) !important; -webkit-backdrop-filter: blur(28px) saturate(165%) !important; }
     .tunnel-container, .flame-viz-container { backdrop-filter: blur(28px) saturate(165%) !important; -webkit-backdrop-filter: blur(28px) saturate(165%) !important; border-radius: 18px !important; border-top: 1px solid rgba(255, 255, 255, 0.42) !important; }
     .nasa-card, div[data-testid="stPlotlyChart"], .rag-result-card, .specimen-subcard { background: var(--holo-glass) !important; border: 1px solid rgba(56, 189, 248, 0.28) !important; border-top: 1px solid rgba(255, 255, 255, 0.38) !important; border-radius: 18px !important; backdrop-filter: blur(24px) saturate(160%) !important; -webkit-backdrop-filter: blur(24px) saturate(160%) !important; position: relative !important; overflow: hidden !important; transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease !important; transform: none !important; }
-    .nasa-card:hover, .specimen-subcard:hover { background: var(--holo-glass-hover) !important; transform: none !important; border-color: rgba(0, 242, 255, 0.62) !important; box-shadow: 0 12px 30px rgba(2, 6, 23, 0.65), 0 0 18px rgba(0, 242, 255, 0.18) !important; }
-    .nasa-card-value { text-shadow: 0 0 18px rgba(0, 242, 255, 0.28) !important; }
+    .nasa-card:hover, .specimen-subcard:hover { background: var(--holo-glass-hover) !important; transform: none !important; border-color: rgba(56, 189, 248, 0.55) !important; box-shadow: 0 12px 30px rgba(2, 6, 23, 0.65), 0 0 18px rgba(56, 189, 248, 0.15) !important; }
+    .nasa-card-value { text-shadow: 0 0 14px rgba(56, 189, 248, 0.22) !important; }
     .sfrs-bar-fill { position: relative; overflow: hidden; }
     @keyframes criticalAlertPulse {
-    0%, 100% { box-shadow: 0 0 8px rgba(239, 68, 68, 0.35); border-color: #FF4D4D !important; }
-    50% { box-shadow: 0 0 18px rgba(255, 77, 77, 0.75); border-color: #FCA5A5 !important; }
+        0%, 100% { box-shadow: 0 0 8px rgba(239, 68, 68, 0.35); border-color: #EF4444 !important; }
+        50% { box-shadow: 0 0 18px rgba(239, 68, 68, 0.75); border-color: #FCA5A5 !important; }
     }
     .badge-critical, .critical-alert-card { animation: criticalAlertPulse 2s infinite ease-in-out !important; transform: none !important; }
-    [data-testid="stTab"][aria-selected="true"] { border-radius: 12px !important; background: linear-gradient(135deg, rgba(14, 165, 233, 0.3) 0%, rgba(2, 132, 199, 0.18) 100%) !important; border: 1.5px solid #00F2FF !important; box-shadow: 0 0 18px rgba(0, 242, 255, 0.4) !important; color: #FFFFFF !important; font-weight: 700 !important; transform: none !important; }
     .svg-flame-animated, .svg-flame-morph-tab2 { animation: none !important; transform: none !important; }
     @keyframes coreGlow {
-    0%, 100% { filter: drop-shadow(0 0 4px #F59E0B) drop-shadow(0 0 8px #E03C31); opacity: 0.88; }
-    50% { filter: drop-shadow(0 0 7px #FEF08A) drop-shadow(0 0 12px #FF4D4D); opacity: 1.0; }
+        0%, 100% { filter: drop-shadow(0 0 4px #F59E0B) drop-shadow(0 0 8px #E03C31); opacity: 0.88; }
+        50% { filter: drop-shadow(0 0 7px #FEF08A) drop-shadow(0 0 12px #FF4D4D); opacity: 1.0; }
     }
     .specimen-burning-glow { animation: coreGlow 1.6s infinite ease-in-out; }
     @keyframes telemetryWave {
-    0% { stroke-dashoffset: 60; }
-    100% { stroke-dashoffset: 0; }
+        0% { stroke-dashoffset: 60; }
+        100% { stroke-dashoffset: 0; }
     }
     .telemetry-wave-path { stroke-dasharray: 30 30; animation: telemetryWave 1.8s linear infinite; }
-    /* An triet de so lo lung tren nut keo va thanh tick mac dinh trong Streamlit */
+
+    /* Telemetry Sliders and Direct Numeric Inputs */
     section[data-testid="stSidebar"] [data-testid="stSliderThumbValue"],
     section[data-testid="stSidebar"] div[data-testid="stThumbValue"],
-    section[data-testid="stSidebar"] div[data-testid="stSlider"] [role="slider"] > *,
     section[data-testid="stSidebar"] div[data-testid="stTickBar"],
     section[data-testid="stSidebar"] div[data-testid="stSliderTickBar"] {
         display: none !important;
@@ -568,7 +1189,7 @@ render_html("""
         pointer-events: none !important;
     }
 
-    /* Khung Card Telemetry thong nhat 1 khoi st.container trong Sidebar */
+    /* Telemetry Card in Sidebar */
     section[data-testid="stSidebar"] div[class*="st-key-telemetry_card_"] {
         background: #0D1930 !important;
         border-left: 3px solid #38BDF8 !important;
@@ -576,7 +1197,7 @@ render_html("""
         border-top: 1px solid rgba(56, 189, 248, 0.28) !important;
         border-bottom: 1px solid rgba(56, 189, 248, 0.28) !important;
         border-radius: 12px !important;
-        padding: 12px 12px 14px 12px !important;
+        padding: 10px 12px 10px 12px !important;
         margin-bottom: 12px !important;
         box-sizing: border-box !important;
         width: 100% !important;
@@ -595,7 +1216,7 @@ render_html("""
         overflow: visible !important;
     }
 
-    /* Slider ben trong Card: trong suot, tu nhien, khong margin am */
+    /* Slider inside Card */
     section[data-testid="stSidebar"] div[class*="st-key-telemetry_card_"] div[data-testid="stSlider"] {
         background: transparent !important;
         border: none !important;
@@ -611,11 +1232,58 @@ render_html("""
     section[data-testid="stSidebar"] div[data-testid="stSlider"] label[data-testid="stWidgetLabel"] { min-height: 0 !important; margin-bottom: 0 !important; padding: 0 !important; display: none !important; }
     section[data-testid="stSidebar"] div[data-testid="stSlider"] [data-baseweb="slider"] { padding: 6px 0 !important; margin: 0 !important; }
     section[data-testid="stSidebar"] div[data-testid="stSlider"] [data-baseweb="slider"] > div > div { height: 7px !important; border-radius: 999px !important; }
-    section[data-testid="stSidebar"] div[data-testid="stSlider"] [role="slider"] { width: 18px !important; height: 18px !important; background: #00F2FF !important; border: 2.5px solid #FFFFFF !important; box-shadow: 0 0 12px rgba(0, 242, 255, 0.85) !important; transition: box-shadow 0.2s ease !important; }
+    section[data-testid="stSidebar"] div[data-testid="stSlider"] [role="slider"] {
+        width: 18px !important;
+        height: 18px !important;
+        background: #38BDF8 !important;
+        border: 2.5px solid #FFFFFF !important;
+        box-shadow: 0 2px 8px rgba(56, 189, 248, 0.45) !important;
+        transition: box-shadow 0.15s ease !important;
+        will-change: transform !important;
+        cursor: grab !important;
+        touch-action: none !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stSlider"] [role="slider"]:active {
+        cursor: grabbing !important;
+        box-shadow: 0 0 14px #38BDF8, 0 0 6px #FFFFFF !important;
+    }
     section[data-testid="stSidebar"] div[data-testid="stSlider"] [role="slider"]:hover,
-    section[data-testid="stSidebar"] div[data-testid="stSlider"] [role="slider"]:focus { box-shadow: 0 0 18px #00F2FF, 0 0 6px #FFFFFF !important; transform: none !important; }
+    section[data-testid="stSidebar"] div[data-testid="stSlider"] [role="slider"]:focus {
+        box-shadow: 0 0 12px #38BDF8, 0 0 4px #FFFFFF !important;
+        outline: none !important;
+    }
 
-    /* Header Card phia tren st.slider */
+    /* Direct Numeric Input styling in telemetry cards (Feature 6) */
+    .stNumberInput div[data-baseweb="input"] {
+        background: rgba(11, 22, 44, 0.85) !important;
+        border: 1px solid rgba(56, 189, 248, 0.35) !important;
+        border-radius: 8px !important;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+        transition: all 0.2s ease !important;
+    }
+    .stNumberInput div[data-baseweb="input"]:focus-within {
+        border-color: #38BDF8 !important;
+        box-shadow: 0 0 10px rgba(56, 189, 248, 0.35), inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+    }
+    .stNumberInput input {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.82rem !important;
+        font-weight: 800 !important;
+        color: #38BDF8 !important;
+        text-align: right !important;
+        padding: 3px 8px !important;
+    }
+    .stNumberInput button {
+        border-color: rgba(56, 189, 248, 0.2) !important;
+        color: #94A3B8 !important;
+        background: transparent !important;
+    }
+    .stNumberInput button:hover {
+        color: #38BDF8 !important;
+        background: rgba(56, 189, 248, 0.15) !important;
+    }
+
+    /* Header Card top element */
     .ctrl-card-top {
         background: transparent !important;
         border: none !important;
@@ -635,7 +1303,24 @@ def load_nasa_psi_data():
         data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
     except Exception:
         data_dir = os.path.join(os.getcwd(), "data")
-        
+
+    if RUST_BACKEND_AVAILABLE:
+        try:
+            rust_data = rust_core.load_nasa_psi_data(data_dir)
+            materials_df = pd.DataFrame(rust_data["embedded_materials"])
+            sofie_df = pd.DataFrame(rust_data["sofie_records"]) if rust_data.get("sofie_records") else None
+            saffire_df = pd.DataFrame(rust_data["saffire_records"]) if rust_data.get("saffire_records") else None
+            bass_df = pd.DataFrame(rust_data["bass_records"]) if rust_data.get("bass_records") else None
+            return {
+                "materials_df": materials_df,
+                "sofie_df": sofie_df,
+                "saffire_df": saffire_df,
+                "bass_df": bass_df,
+                "source_status": rust_data.get("source_status", "cache")
+            }
+        except Exception:
+            pass
+
     sofie_path = os.path.join(data_dir, "sofie_pmma_burn_rates.csv")
     saffire_path = os.path.join(data_dir, "saffire_pressure_oxygen.csv")
     bass_path = os.path.join(data_dir, "bass_extinction_limits.csv")
@@ -892,70 +1577,142 @@ def load_nasa_psi_data():
 class MicrogravityCombustionPhysics:
 
     @staticmethod
-    def calculate_effective_moc(material_row, gravity_g, airflow_cm_s, pressure_kpa):
-        moc_1g = float(material_row["moc_1g"])
-        moc_ug = float(material_row["moc_microg"])
-        
-        v_buoyant = 25.0 * np.sqrt(max(0.0, gravity_g))
-        v_eff = np.sqrt(airflow_cm_s**2 + v_buoyant**2)
-        
+    def calculate_effective_moc(material_row, gravity_g, airflow_cm_s, pressure_kpa, temp_c=21.0, rh_pct=45.0):
+        t_val = max(-40.0, min(150.0, physics_models._safe_float(temp_c, 21.0)))
+        rh_val = max(0.0, min(100.0, physics_models._safe_float(rh_pct, 45.0)))
+        g_raw = float(gravity_g) if gravity_g is not None else 0.0
+        g_val = 0.0 if math.isnan(g_raw) else max(0.0, g_raw)
+        v_val = physics_models._safe_float(airflow_cm_s, 0.0)
+        p_val = physics_models._safe_float(pressure_kpa, 101.3)
+
+        if (
+            RUST_BACKEND_AVAILABLE
+            and math.isfinite(g_val)
+            and math.isclose(t_val, 21.0, abs_tol=1e-9)
+            and math.isclose(rh_val, 45.0, abs_tol=1e-9)
+            and math.isclose(p_val, 101.3, abs_tol=1e-6)
+        ):
+            try:
+                return float(rust_core.MicrogravityCombustionPhysics.calculate_effective_moc(
+                    material_row, float(g_val), float(v_val), float(p_val)
+                ))
+            except Exception:
+                pass
+        moc_1g = physics_models._safe_float(material_row["moc_1g"], 21.0)
+        moc_ug = physics_models._safe_float(material_row["moc_microg"], 18.0)
+
+        v_buoyant = 25.0 * np.sqrt(max(0.0, g_val))
+        v_eff = np.sqrt(v_val**2 + v_buoyant**2)
+
         delta_quench = 0.0
         if v_eff < 3.5:
             delta_quench = 5.0 * (1.0 - (v_eff / 3.5))**1.5
-            
+
         delta_blowoff = 0.0
         if v_eff > 25.0:
             delta_blowoff = 0.16 * (v_eff - 25.0)**1.2
-            
-        p_ratio = max(0.1, pressure_kpa / 101.3)
+
+        p_ratio = max(0.1, p_val / 101.3)
         delta_pressure = 1.8 * (1.0 - (p_ratio)**0.35)
-        
-        g_factor = np.clip(np.sqrt(max(0.0, float(gravity_g))), 0.0, 1.0)
+
+        g_factor = np.clip(np.sqrt(max(0.0, float(g_val))), 0.0, 1.0)
         base_moc = moc_ug + (moc_1g - moc_ug) * g_factor
-        
-        effective_moc = base_moc + delta_quench + delta_blowoff + delta_pressure
+
+        x_h2o = physics_models.water_vapor_mole_fraction(t_val, rh_val, p_val)
+        x_ref = physics_models.water_vapor_mole_fraction(21.0, 45.0, 101.3)
+        delta_env = -0.05 * (t_val - 21.0) + 18.0 * (x_h2o - x_ref)
+
+        effective_moc = base_moc + delta_quench + delta_blowoff + delta_pressure + delta_env
+        if not math.isfinite(effective_moc):
+            return 60.0 if (math.isinf(effective_moc) and effective_moc > 0) else 18.0
         return float(np.clip(effective_moc, 8.0, 60.0))
 
     @staticmethod
-    def calculate_flame_spread_rate(material_row, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, effective_moc):
-        if oxygen_pct < effective_moc:
+    def calculate_flame_spread_rate(material_row, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, effective_moc, temp_c=21.0, rh_pct=45.0):
+        t_val = max(-40.0, min(150.0, physics_models._safe_float(temp_c, 21.0)))
+        rh_val = max(0.0, min(100.0, physics_models._safe_float(rh_pct, 45.0)))
+        g_val = max(0.0, physics_models._safe_float(gravity_g, 0.0))
+        o2_val = physics_models._safe_float(oxygen_pct, 21.0)
+        p_val = physics_models._safe_float(pressure_kpa, 101.3)
+        v_val = physics_models._safe_float(airflow_cm_s, 0.0)
+        eff_moc_val = physics_models._safe_float(effective_moc, 18.0)
+
+        if (
+            RUST_BACKEND_AVAILABLE
+            and math.isclose(t_val, 21.0, abs_tol=1e-9)
+            and math.isclose(rh_val, 45.0, abs_tol=1e-9)
+            and math.isclose(p_val, 101.3, abs_tol=1e-6)
+        ):
+            try:
+                return float(rust_core.MicrogravityCombustionPhysics.calculate_flame_spread_rate(
+                    material_row, float(g_val), float(o2_val), float(p_val), float(v_val), float(eff_moc_val)
+                ))
+            except Exception:
+                pass
+        if o2_val < eff_moc_val:
             return 0.0
-            
-        base_spread = float(material_row["base_spread_rate_mm_s"])
-        
-        o2_margin = max(0.01, (oxygen_pct - effective_moc))
-        o2_ref_span = max(4.0, float(material_row["moc_microg"]) * 0.3)
+
+        base_spread = max(0.0, physics_models._safe_float(material_row["base_spread_rate_mm_s"], 1.0))
+        moc_ug = physics_models._safe_float(material_row["moc_microg"], 18.0)
+
+        o2_margin = max(0.01, (o2_val - eff_moc_val))
+        o2_ref_span = max(1.0, moc_ug * 0.3)
         o2_scale = (o2_margin / o2_ref_span) ** 1.15
-        
-        p_scale = np.sqrt(max(0.1, pressure_kpa / 101.3))
-        
-        v_b = 25.0 * np.sqrt(max(0.0, gravity_g))
-        v_total = np.sqrt(airflow_cm_s**2 + v_b**2)
-        
-        if gravity_g < 0.1:
+
+        p_scale = np.sqrt(max(0.1, p_val / 101.3))
+
+        v_b = 25.0 * np.sqrt(max(0.0, g_val))
+        v_total = np.sqrt(v_val**2 + v_b**2)
+
+        if g_val < 0.1:
             vent_factor = 0.35 + 1.35 * (v_total / 12.0) * np.exp(1.0 - (v_total / 12.0))
         else:
             vent_factor = 0.70 + 0.50 * (v_total / 25.0)**0.85
-            
+
         spread_rate = base_spread * o2_scale * p_scale * vent_factor
+        t_ign = physics_models._safe_float(
+            material_row.get("ignition_temp_c", 380.0) if hasattr(material_row, "get") else 380.0,
+            380.0,
+        )
+        preheat_factor = (max(50.0, t_ign - 21.0) / max(50.0, t_ign - t_val)) ** 0.85
+        x_h2o = physics_models.water_vapor_mole_fraction(t_val, rh_val, p_val)
+        x_ref = physics_models.water_vapor_mole_fraction(21.0, 45.0, 101.3)
+        hum_factor = max(0.65, 1.0 - 5.5 * (x_h2o - x_ref))
+        spread_rate *= preheat_factor * hum_factor
         return float(max(0.0, spread_rate))
 
     @staticmethod
     def calculate_space_fire_risk_score(material_row, effective_moc, spread_rate, oxygen_pct, pressure_kpa, airflow_cm_s):
-        if oxygen_pct < effective_moc:
+        eff_moc_val = physics_models._safe_float(effective_moc, 21.0)
+        spread_val = max(0.0, physics_models._safe_float(spread_rate, 0.0))
+        o2_val = physics_models._safe_float(oxygen_pct, 21.0)
+        p_val = max(0.0, physics_models._safe_float(pressure_kpa, 101.3))
+        v_val = max(0.0, physics_models._safe_float(airflow_cm_s, 0.0))
+
+        if RUST_BACKEND_AVAILABLE:
+            try:
+                score, tier, color = rust_core.MicrogravityCombustionPhysics.calculate_space_fire_risk_score(
+                    material_row, eff_moc_val, spread_val, o2_val, p_val, v_val
+                )
+                score_f = float(score)
+                if math.isfinite(score_f):
+                    return score_f, str(tier), str(color)
+            except Exception:
+                pass
+        if o2_val < eff_moc_val:
             return 0.0, "Safe", "#10B981"
-            
-        o2_overage = oxygen_pct - effective_moc
-        hoc = float(material_row.get("heat_of_combustion_mj_kg", 20.0))
-        
+
+        o2_overage = o2_val - eff_moc_val
+        hoc = max(0.0, physics_models._safe_float(material_row.get("heat_of_combustion_mj_kg", 20.0) if hasattr(material_row, "get") else 20.0, 20.0))
+
         score_o2 = min(35.0, o2_overage * 2.8)
-        score_spread = min(35.0, spread_rate * 20.0)
+        score_spread = min(35.0, spread_val * 20.0)
         score_energy = min(15.0, (hoc / 45.0) * 15.0)
-        cabin_o2_penalty = 15.0 * max(0.0, (oxygen_pct - 21.0) / 19.0)
-        
+        cabin_o2_penalty = 15.0 * max(0.0, (o2_val - 21.0) / 19.0)
+
         sfrs = score_o2 + score_spread + score_energy + cabin_o2_penalty
         sfrs = float(np.clip(sfrs, 5.0, 100.0))
-        
+
         if sfrs >= 70.0:
             return sfrs, "Critical", "#E03C31"
         elif sfrs >= 45.0:
@@ -966,16 +1723,53 @@ class MicrogravityCombustionPhysics:
             return sfrs, "Safe", "#10B981"
 
     @staticmethod
-    def detect_cool_flames(material_row, gravity_g, airflow_cm_s, oxygen_pct, pressure_kpa, lang="en", eff_moc=None):
-        if not material_row.get("cool_flame_susceptible", False):
+    def detect_cool_flames(
+        material_row,
+        gravity_g,
+        airflow_cm_s,
+        oxygen_pct,
+        pressure_kpa,
+        lang="en",
+        eff_moc=None,
+        temp_c=21.0,
+        rh_pct=45.0,
+    ):
+        t_val = physics_models._safe_float(temp_c, 21.0)
+        rh_val = physics_models._safe_float(rh_pct, 45.0)
+        p_val = physics_models._safe_float(pressure_kpa, 101.3)
+        inputs_finite = all(
+            x is not None and math.isfinite(float(x))
+            for x in (gravity_g, airflow_cm_s, oxygen_pct)
+        )
+        g_val = max(0.0, physics_models._safe_float(gravity_g, 0.0))
+        v_val = max(0.0, physics_models._safe_float(airflow_cm_s, 0.0))
+        o2_val = physics_models._safe_float(oxygen_pct, 21.0)
+        is_stp = (
+            abs(t_val - 21.0) <= 1e-6
+            and abs(rh_val - 45.0) <= 1e-6
+            and abs(p_val - 101.3) <= 0.1
+        )
+        if RUST_BACKEND_AVAILABLE and (eff_moc is not None or is_stp):
+            try:
+                active, msg = rust_core.MicrogravityCombustionPhysics.detect_cool_flames(
+                    material_row, float(gravity_g), float(airflow_cm_s), float(oxygen_pct), p_val, lang, eff_moc
+                )
+                return bool(active), str(msg)
+            except Exception:
+                pass
+        if not material_row.get("cool_flame_susceptible", False) or not inputs_finite:
             msg = "Không nhạy cảm với chuyển dịch ngọn lửa lạnh." if lang == "vi" else "Not susceptible to cool flame transition."
             return False, msg
         if eff_moc is None:
-            eff_moc = MicrogravityCombustionPhysics.calculate_effective_moc(material_row, gravity_g, airflow_cm_s, pressure_kpa)
-        if (gravity_g <= 0.08 and 
-            airflow_cm_s <= 4.0 and 
-            pressure_kpa >= 35.0 and 
-            (eff_moc - 2.5 <= oxygen_pct <= eff_moc + 2.0)):
+            eff_moc_val = MicrogravityCombustionPhysics.calculate_effective_moc(
+                material_row, g_val, v_val, p_val, temp_c=t_val, rh_pct=rh_val
+            )
+        else:
+            eff_moc_val = physics_models._safe_float(eff_moc, 18.0)
+        if (g_val <= 0.08 and 
+            v_val <= 4.0 and 
+            p_val >= 35.0 and 
+            (eff_moc_val - 2.5 <= o2_val <= eff_moc_val + 2.0)):
             if lang == "vi":
                 msg = (
                     "CẢNH BÁO NGUY HIỂM: Chế độ Ngọn Lửa Lạnh Đang Hoạt động. Tổn thất nhiệt bức xạ dập tắt vùng phản ứng "
@@ -994,12 +1788,28 @@ class MicrogravityCombustionPhysics:
         return False, msg
 
     @staticmethod
-    def generate_extinction_curve(material_row, gravity_g, pressure_kpa):
+    def generate_extinction_curve(material_row, gravity_g, pressure_kpa, temp_c=21.0, rh_pct=45.0):
+        t_val = float(temp_c) if temp_c is not None and math.isfinite(float(temp_c)) else 21.0
+        rh_val = float(rh_pct) if rh_pct is not None and math.isfinite(float(rh_pct)) else 45.0
+        p_val = float(pressure_kpa) if pressure_kpa is not None and math.isfinite(float(pressure_kpa)) else 101.3
+        is_stp = (
+            abs(t_val - 21.0) <= 1e-6
+            and abs(rh_val - 45.0) <= 1e-6
+            and abs(p_val - 101.3) <= 0.1
+        )
+        if RUST_BACKEND_AVAILABLE and is_stp:
+            try:
+                v_sweep, moc_sweep = rust_core.MicrogravityCombustionPhysics.generate_extinction_curve(
+                    material_row, float(gravity_g), p_val
+                )
+                return np.array(v_sweep), np.array(moc_sweep)
+            except Exception:
+                pass
         v_sweep = np.linspace(0.0, 50.0, 60)
         moc_sweep = []
         for v in v_sweep:
             moc_val = MicrogravityCombustionPhysics.calculate_effective_moc(
-                material_row, gravity_g, v, pressure_kpa
+                material_row, gravity_g, v, p_val, temp_c=t_val, rh_pct=rh_val
             )
             moc_sweep.append(moc_val)
         return v_sweep, np.array(moc_sweep)
@@ -1014,21 +1824,33 @@ class MicrogravityCombustionPhysics:
         is_extinguished: bool = False,
         material_row: dict = None
     ):
-        p_ratio = max(0.1, pressure_kpa / 101.325)
-        v_m_s = max(0.001, airflow_cm_s / 100.0)
+        if RUST_BACKEND_AVAILABLE:
+            try:
+                return dict(rust_core.MicrogravityCombustionPhysics.calculate_flame_morphology_metrics(
+                    float(gravity_g), float(airflow_cm_s), float(oxygen_pct), float(pressure_kpa), lang, bool(is_extinguished), material_row
+                ))
+            except Exception:
+                pass
+        p_clean = max(1.0, physics_models._safe_float(pressure_kpa, 101.325))
+        g_clean = max(0.0, physics_models._safe_float(gravity_g, 0.0))
+        v_clean = max(0.0, physics_models._safe_float(airflow_cm_s, 0.0))
+        o2_clean = max(0.0, physics_models._safe_float(oxygen_pct, 21.0))
+
+        p_ratio = max(0.1, p_clean / 101.325)
+        v_m_s = max(0.001, v_clean / 100.0)
         char_l = 0.05
         nu_0 = 1.5e-5
         alpha_0 = 2.2e-5
 
         reynolds = (v_m_s * char_l / nu_0) * p_ratio
-        g_accel = max(0.0, gravity_g) * 9.81
+        g_accel = max(0.0, g_clean) * 9.81
         grashof = (g_accel * (1.0 / 300.0) * 1200.0 * (char_l**3) / (nu_0**2)) * (p_ratio**2)
         richardson = grashof / (reynolds**2) if reynolds > 0 else 0.0
         peclet = (v_m_s * char_l / alpha_0) * p_ratio
 
-        v_buoyant = 25.0 * math.sqrt(max(0.0, gravity_g))
-        v_eff = max(0.2, math.sqrt(airflow_cm_s**2 + v_buoyant**2))
-        damkohler = (12.0 / v_eff) * ((oxygen_pct / 21.0)**1.2) * (p_ratio**0.8)
+        v_buoyant = 25.0 * math.sqrt(max(0.0, g_clean))
+        v_eff = max(0.2, math.sqrt(v_clean**2 + v_buoyant**2))
+        damkohler = (12.0 / v_eff) * ((o2_clean / 21.0)**1.2) * (p_ratio**0.8)
 
         if is_extinguished:
             regime_code = "EXTINGUISHED"
@@ -1036,7 +1858,7 @@ class MicrogravityCombustionPhysics:
             color_theme = "#64748B"
             peak_temp_k = 300.0
             regime_name, morph_desc, soot_fraction = get_morphology_regime_info(
-                regime_code, gravity_g, airflow_cm_s, oxygen_pct, lang=lang
+                regime_code, g_clean, v_clean, o2_clean, lang=lang
             )
             return {
                 "grashof": grashof,
@@ -1053,27 +1875,27 @@ class MicrogravityCombustionPhysics:
                 "morph_desc": morph_desc
             }
 
-        w_0g = float(np.exp(-((gravity_g / 0.12)**2)))
-        w_1g = float(1.0 / (1.0 + np.exp(-10.0 * (gravity_g - 0.55))))
+        w_0g = float(np.exp(-((g_clean / 0.12)**2)))
+        w_1g = float(1.0 / (1.0 + np.exp(-10.0 * (g_clean - 0.55))))
         w_part = max(0.0, 1.0 - w_0g - w_1g)
 
-        ar_0g = 1.00 + 0.015 * airflow_cm_s
-        ar_pg = 0.65 + 0.45 * np.sqrt(max(0.0, gravity_g))
-        ar_1g = max(2.2, 3.20 - 0.02 * airflow_cm_s)
+        ar_0g = 1.00 + 0.015 * v_clean
+        ar_pg = 0.65 + 0.45 * np.sqrt(max(0.0, g_clean))
+        ar_1g = max(2.2, 3.20 - 0.02 * v_clean)
         aspect_ratio = float(w_0g * ar_0g + w_part * ar_pg + w_1g * ar_1g)
 
-        delta_t_o2 = 8.0 * (oxygen_pct - 21.0)
+        delta_t_o2 = 8.0 * (o2_clean - 21.0)
         t_base = w_0g * 1380.0 + w_part * 1600.0 + w_1g * 1850.0
         if material_row is not None:
-            hoc = float(material_row.get("heat_of_combustion_mj_kg", 25.0))
+            hoc = max(0.0, physics_models._safe_float(material_row.get("heat_of_combustion_mj_kg", 25.0) if hasattr(material_row, "get") else 25.0, 25.0))
             delta_hoc = min(250.0, max(-200.0, (hoc - 25.0) * 8.5))
             t_base += delta_hoc
         peak_temp_k = float(t_base + delta_t_o2)
 
-        if gravity_g >= 0.80:
+        if g_clean >= 0.80:
             regime_code = "BUOYANT_TEARDROP"
             color_theme = "#F59E0B"
-        elif gravity_g <= 0.08:
+        elif g_clean <= 0.08:
             regime_code = "SPHERICAL_DIFFUSION"
             color_theme = "#00F2FF"
         else:
@@ -1081,7 +1903,7 @@ class MicrogravityCombustionPhysics:
             color_theme = "#E03C31"
 
         regime_name, morph_desc, soot_fraction = get_morphology_regime_info(
-            regime_code, gravity_g, airflow_cm_s, oxygen_pct, lang=lang
+            regime_code, g_clean, v_clean, o2_clean, lang=lang
         )
 
         return {
@@ -1100,41 +1922,111 @@ class MicrogravityCombustionPhysics:
         }
 
 @st.cache_data(show_spinner=False)
-def calculate_cached_paradox_sweep(mat_dict_tuple, oxygen_pct: float, pressure_kpa: float, gravity_g: float):
+def calculate_cached_paradox_sweep(
+    mat_dict_tuple,
+    oxygen_pct: float,
+    pressure_kpa: float,
+    gravity_g: float,
+    temp_c: float = 21.0,
+    rh_pct: float = 45.0,
+):
+    t_val = physics_models._safe_float(temp_c, 21.0)
+    rh_val = physics_models._safe_float(rh_pct, 45.0)
+    p_val = physics_models._safe_float(pressure_kpa, 101.3)
+    if (
+        RUST_BACKEND_AVAILABLE
+        and math.isclose(t_val, 21.0, abs_tol=1e-9)
+        and math.isclose(rh_val, 45.0, abs_tol=1e-9)
+        and math.isclose(p_val, 101.3, abs_tol=1e-6)
+    ):
+        try:
+            v_range, sp_0g, sp_1g, sp_cg = rust_core.calculate_cached_paradox_sweep(
+                mat_dict_tuple, float(oxygen_pct), float(p_val), float(gravity_g)
+            )
+            return list(v_range), list(sp_0g), list(sp_1g), list(sp_cg)
+        except Exception:
+            pass
     mat_dict = dict(mat_dict_tuple)
     v_range = np.linspace(0.0, 30.0, 35)
     spread_0g = []
     spread_1g = []
     spread_cg = []
     for v_val in v_range:
-        moc_0g = MicrogravityCombustionPhysics.calculate_effective_moc(mat_dict, 0.0, v_val, pressure_kpa)
-        sp_0g = MicrogravityCombustionPhysics.calculate_flame_spread_rate(mat_dict, 0.0, oxygen_pct, pressure_kpa, v_val, moc_0g)
+        moc_0g = MicrogravityCombustionPhysics.calculate_effective_moc(
+            mat_dict, 0.0, v_val, p_val, temp_c=t_val, rh_pct=rh_val
+        )
+        sp_0g = MicrogravityCombustionPhysics.calculate_flame_spread_rate(
+            mat_dict, 0.0, oxygen_pct, p_val, v_val, moc_0g, temp_c=t_val, rh_pct=rh_val
+        )
         spread_0g.append(sp_0g)
 
-        moc_1g = MicrogravityCombustionPhysics.calculate_effective_moc(mat_dict, 1.0, v_val, pressure_kpa)
-        sp_1g = MicrogravityCombustionPhysics.calculate_flame_spread_rate(mat_dict, 1.0, oxygen_pct, pressure_kpa, v_val, moc_1g)
+        moc_1g = MicrogravityCombustionPhysics.calculate_effective_moc(
+            mat_dict, 1.0, v_val, p_val, temp_c=t_val, rh_pct=rh_val
+        )
+        sp_1g = MicrogravityCombustionPhysics.calculate_flame_spread_rate(
+            mat_dict, 1.0, oxygen_pct, p_val, v_val, moc_1g, temp_c=t_val, rh_pct=rh_val
+        )
         spread_1g.append(sp_1g)
 
         if 0.005 <= gravity_g <= 0.995:
-            moc_cur = MicrogravityCombustionPhysics.calculate_effective_moc(mat_dict, gravity_g, v_val, pressure_kpa)
-            sp_cur = MicrogravityCombustionPhysics.calculate_flame_spread_rate(mat_dict, gravity_g, oxygen_pct, pressure_kpa, v_val, moc_cur)
+            moc_cur = MicrogravityCombustionPhysics.calculate_effective_moc(
+                mat_dict, gravity_g, v_val, p_val, temp_c=t_val, rh_pct=rh_val
+            )
+            sp_cur = MicrogravityCombustionPhysics.calculate_flame_spread_rate(
+                mat_dict, gravity_g, oxygen_pct, p_val, v_val, moc_cur, temp_c=t_val, rh_pct=rh_val
+            )
             spread_cg.append(sp_cur)
 
     return list(v_range), spread_0g, spread_1g, spread_cg
 
 @st.cache_data(show_spinner=False)
-def calculate_cached_boundary_sweep(mat_dict_tuple, gravity_g: float, pressure_kpa: float):
+def calculate_cached_boundary_sweep(
+    mat_dict_tuple,
+    gravity_g: float,
+    pressure_kpa: float,
+    temp_c: float = 21.0,
+    rh_pct: float = 45.0,
+):
+    t_val = physics_models._safe_float(temp_c, 21.0)
+    rh_val = physics_models._safe_float(rh_pct, 45.0)
+    p_val = physics_models._safe_float(pressure_kpa, 101.3)
+    if (
+        RUST_BACKEND_AVAILABLE
+        and math.isclose(t_val, 21.0, abs_tol=1e-9)
+        and math.isclose(rh_val, 45.0, abs_tol=1e-9)
+        and math.isclose(p_val, 101.3, abs_tol=1e-6)
+    ):
+        try:
+            v_sw, moc_sw = rust_core.calculate_cached_boundary_sweep(
+                mat_dict_tuple, float(gravity_g), float(p_val)
+            )
+            return np.array(v_sw), np.array(moc_sw)
+        except Exception:
+            pass
     mat_dict = dict(mat_dict_tuple)
-    return MicrogravityCombustionPhysics.generate_extinction_curve(mat_dict, gravity_g, pressure_kpa)
+    return MicrogravityCombustionPhysics.generate_extinction_curve(
+        mat_dict, gravity_g, p_val, temp_c=t_val, rh_pct=rh_val
+    )
 
 @st.cache_data(show_spinner=False)
 def calculate_temperature_mesh(gravity_g: float, airflow_cm_s: float, peak_temp_k: float, is_extinguished: bool = False):
+    g_safe = max(0.0, physics_models._safe_float(gravity_g, 0.0))
+    v_safe = max(0.0, physics_models._safe_float(airflow_cm_s, 0.0))
+    t_safe = max(290.0, physics_models._safe_float(peak_temp_k, 1800.0))
+    if RUST_BACKEND_AVAILABLE:
+        try:
+            x_pts, y_pts, T_grid, c_scale = rust_core.calculate_temperature_mesh(
+                float(g_safe), float(v_safe), float(t_safe), bool(is_extinguished)
+            )
+            return np.array(x_pts), np.array(y_pts), np.array(T_grid), [[s[0], s[1]] for s in c_scale]
+        except Exception:
+            pass
     grid_n = 60
     x_pts = np.linspace(-3.0, 3.0, grid_n)
     y_pts = np.linspace(-2.0, 4.0, grid_n)
     X, Y = np.meshgrid(x_pts, y_pts)
-    g_c = max(0.0, gravity_g)
-    v_c = airflow_cm_s / 25.0
+    g_c = g_safe
+    v_c = v_safe / 25.0
     
     if is_extinguished:
         T = np.full_like(X, 300.0)
@@ -1147,7 +2039,7 @@ def calculate_temperature_mesh(gravity_g: float, airflow_cm_s: float, peak_temp_
 
     if g_c >= 0.80:
         dist_sq = (X * 2.2)**2 + ((Y - 0.5) / 1.6)**2
-        T = 300.0 + (peak_temp_k - 300.0) * np.exp(-dist_sq) * np.clip(1.2 - 0.2 * (Y - 0.5), 0.2, 1.2)
+        T = 300.0 + (t_safe - 300.0) * np.exp(-dist_sq) * np.clip(1.2 - 0.2 * (Y - 0.5), 0.2, 1.2)
         c_scale = [
             [0.0, "#0C2D57"],
             [0.2, "#1D4ED8"],
@@ -1159,7 +2051,7 @@ def calculate_temperature_mesh(gravity_g: float, airflow_cm_s: float, peak_temp_
         x_shift = v_c * 0.4
         dist_sq = (X - x_shift)**2 + Y**2
         r = np.sqrt(dist_sq)
-        T = 300.0 + (peak_temp_k - 300.0) * np.exp(-((r - 1.0) / 0.7)**2)
+        T = 300.0 + (t_safe - 300.0) * np.exp(-((r - 1.0) / 0.7)**2)
         c_scale = [
             [0.0, "#0C2D57"],
             [0.25, "#0369A1"],
@@ -1169,7 +2061,7 @@ def calculate_temperature_mesh(gravity_g: float, airflow_cm_s: float, peak_temp_
         ]
     else:
         dist_sq = (X / 1.8)**2 + ((Y - 0.2) / 0.85)**2
-        T = 300.0 + (peak_temp_k - 300.0) * np.exp(-dist_sq)
+        T = 300.0 + (t_safe - 300.0) * np.exp(-dist_sq)
         c_scale = [
             [0.0, "#0C2D57"],
             [0.25, "#1E40AF"],
@@ -1188,9 +2080,16 @@ def generate_3d_flame_figure(
     lang: str = "vi",
     cam_view: str = "isometric"
 ):
-    g_c = max(0.0, float(gravity_g))
-    v_c = max(0.0, float(airflow_cm_s))
-    t_peak = float(peak_temp_k)
+    def _finite_float(val, default):
+        try:
+            num = float(val)
+            return num if math.isfinite(num) else default
+        except (TypeError, ValueError):
+            return default
+
+    g_c = max(0.0, _finite_float(gravity_g, 0.0))
+    v_c = max(0.0, _finite_float(airflow_cm_s, 0.0))
+    t_peak = _finite_float(peak_temp_k, 1800.0)
 
     u = np.linspace(0, np.pi, 36)
     v = np.linspace(0, 2 * np.pi, 48)
@@ -1531,7 +2430,14 @@ def generate_3d_flame_figure(
     return fig_3d
 
 @st.cache_data(ttl=900, show_spinner=False)
-def query_online_llm_rag(user_query: str, evidence_snippets: str, llm_provider: str, api_key: str, lang: str = "en") -> str:
+def _query_online_llm_rag_cached(
+    user_query: str,
+    evidence_snippets: str,
+    llm_provider: str,
+    _api_key: str,
+    api_key_hash: str,
+    lang: str = "en",
+) -> str:
     rag_prompt = f"""You are NASA's Chief Spacecraft Fire Safety Officer.
 Answer the following crew query strictly based on the retrieved NASA PSI flight documentation provided below:
 
@@ -1546,9 +2452,9 @@ Provide a structured, authoritative flight safety briefing with specific citatio
     
     try:
         if llm_provider == "Google Gemini":
-            gemini_models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash"]
+            gemini_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-1.5-flash"]
             last_res = None
-            headers = {"x-goog-api-key": api_key.strip(), "Content-Type": "application/json"}
+            headers = {"x-goog-api-key": _api_key.strip(), "Content-Type": "application/json"}
             payload = {
                 "contents": [{"parts": [{"text": rag_prompt}]}],
                 "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800}
@@ -1559,19 +2465,28 @@ Provide a structured, authoritative flight safety briefing with specific citatio
                     res = requests.post(url, headers=headers, json=payload, timeout=15)
                     last_res = res
                     if res.status_code == 200:
-                        data = res.json()
-                        candidates = data.get("candidates") or []
-                        if candidates:
-                            parts = candidates[0].get("content", {}).get("parts") or []
-                            if parts and "text" in parts[0]:
-                                return parts[0]["text"]
-                            if candidates[0].get("finishReason") == "SAFETY":
-                                return "⚠️ Nội dung phản hồi bị bộ lọc an toàn của Google Gemini chặn. Tự động dùng Local Vector Search." if lang == "vi" else "⚠️ Gemini safety filter blocked response. Falling back to Local RAG."
+                        try:
+                            data = res.json() if hasattr(res, "json") else {}
+                        except ValueError:
+                            data = {}
+                        candidates = data.get("candidates") if isinstance(data, dict) else None
+                        first_cand = candidates[0] if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict) else {}
+                        content_obj = first_cand.get("content") if isinstance(first_cand.get("content"), dict) else {}
+                        parts = content_obj.get("parts") if isinstance(content_obj.get("parts"), list) else []
+                        first_part = parts[0] if parts and isinstance(parts[0], dict) else {}
+                        cand_text = first_part.get("text")
+                        if isinstance(cand_text, str) and cand_text.strip():
+                            return cand_text
+                        if first_cand.get("finishReason") == "SAFETY":
+                            return "⚠️ Nội dung phản hồi bị bộ lọc an toàn của Google Gemini chặn. Tự động dùng Local Vector Search." if lang == "vi" else "⚠️ Gemini safety filter blocked response. Falling back to Local RAG."
+                        return "⚠️ Phản hồi từ Google Gemini bị rỗng hoặc bị lọc. Tự động dùng Local Vector Search." if lang == "vi" else "⚠️ Empty or filtered Gemini response. Falling back to Local RAG."
                     elif res.status_code == 404:
                         continue
                     else:
                         break
-                except Exception:
+                except requests.exceptions.Timeout:
+                    raise
+                except requests.exceptions.RequestException:
                     continue
             res = last_res
             if res is not None:
@@ -1587,7 +2502,7 @@ Provide a structured, authoritative flight safety briefing with specific citatio
                 return "⚠️ Không thể kết nối tới Google Gemini API. Tự động dùng Local Vector Search." if lang == "vi" else "⚠️ Could not connect to Google Gemini API. Falling back to Local RAG."
         elif llm_provider == "OpenAI":
             url = "https://api.openai.com/v1/chat/completions"
-            headers = {"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Bearer {_api_key.strip()}", "Content-Type": "application/json"}
             payload = {
                 "model": "gpt-4o-mini",
                 "messages": [
@@ -1598,10 +2513,17 @@ Provide a structured, authoritative flight safety briefing with specific citatio
             }
             res = requests.post(url, headers=headers, json=payload, timeout=15)
             if res.status_code == 200:
-                data = res.json()
-                choices = data.get("choices") or []
-                if choices and "message" in choices[0] and "content" in choices[0]["message"]:
-                    return choices[0]["message"]["content"]
+                try:
+                    data = res.json() if hasattr(res, "json") else {}
+                except ValueError:
+                    data = {}
+                choices = data.get("choices") if isinstance(data, dict) else None
+                first_choice = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
+                msg_obj = first_choice.get("message") if isinstance(first_choice.get("message"), dict) else {}
+                content_text = msg_obj.get("content")
+                if isinstance(content_text, str) and content_text.strip():
+                    return content_text
+                return "⚠️ Phản hồi từ OpenAI bị rỗng hoặc thiếu nội dung. Tự động dùng Local Vector Search." if lang == "vi" else "⚠️ Empty or malformed response from OpenAI. Falling back to Local RAG."
             elif res.status_code in [401, 403]:
                 return "⚠️ Khóa OpenAI API không hợp lệ hoặc đã hết hạn." if lang == "vi" else "⚠️ Invalid or expired OpenAI API key."
             elif res.status_code == 429:
@@ -1613,6 +2535,12 @@ Provide a structured, authoritative flight safety briefing with specific citatio
     except Exception as e:
         return f"⚠️ Không thể kết nối tới dịch vụ LLM ({type(e).__name__}). Hệ thống tự động dùng Local Vector Search." if lang == "vi" else f"⚠️ Unable to reach LLM service ({type(e).__name__}). Fallback to Local Vector Search."
     return ""
+
+
+def query_online_llm_rag(user_query: str, evidence_snippets: str, llm_provider: str, api_key: str, lang: str = "en") -> str:
+    clean_key = str(api_key or "").strip()
+    key_hash = hashlib.sha256(clean_key.encode("utf-8")).hexdigest()[:16] if clean_key else "empty"
+    return _query_online_llm_rag_cached(user_query, evidence_snippets, llm_provider, clean_key, key_hash, lang=lang)
 
 class NASAPsiVectorDB:
 
@@ -1902,6 +2830,14 @@ class NASAPsiVectorDB:
         self.doc_norm_texts = [normalize_vn_text(f"{d['title']} {d['text']} {' '.join(d['tags'])}") for d in self.docs]
         self.norm_keyword_groups = [tuple(normalize_vn_text(s) for s in syns) for syns in self.KEYWORD_WEIGHTS.values()]
 
+        if RUST_BACKEND_AVAILABLE:
+            try:
+                self._rust_vdb = rust_core.NASAPsiVectorDB()
+            except Exception:
+                self._rust_vdb = None
+        else:
+            self._rust_vdb = None
+
         if SKLEARN_AVAILABLE:
             self.vectorizer = TfidfVectorizer(ngram_range=(1, 2), stop_words="english", sublinear_tf=True)
             self.tfidf_matrix = self.vectorizer.fit_transform(self.doc_texts)
@@ -1939,6 +2875,11 @@ class NASAPsiVectorDB:
                 self.py_doc_vectors[d_i] /= norm
 
     def search(self, query_text: str, top_k: int = 3):
+        if getattr(self, "_rust_vdb", None) is not None:
+            try:
+                return self._rust_vdb.search(query_text, top_k)
+            except Exception:
+                pass
         query_clean = query_text.strip()
         if not query_clean:
             return []
@@ -1990,6 +2931,11 @@ class NASAPsiVectorDB:
         return [0.0] * len(self.docs)
 
     def synthesize_answer(self, query_text: str, ranked_results, lang: str = "en"):
+        if getattr(self, "_rust_vdb", None) is not None:
+            try:
+                return self._rust_vdb.synthesize_answer(query_text, ranked_results, lang)
+            except Exception:
+                pass
         if not ranked_results:
             return "Không tìm thấy tài liệu kỹ thuật NASA PSI nào phù hợp." if lang == "vi" else "No matching NASA PSI documents found for this query."
             
@@ -2098,7 +3044,7 @@ class EmergencySuppressionMatrix:
 class AICoPilotEngine:
     @staticmethod
     def generate_expert_insights(material_row, cabin_state, risk_data, lang="en"):
-        chem = material_row["chemical_formula"]
+        chem = material_row.get("chemical_formula", "Custom Polymer Matrix") if hasattr(material_row, "get") else "Custom Polymer Matrix"
         
         sfrs = float(risk_data.get("sfrs", 0.0))
         tier = str(risk_data.get("tier", "Safe"))
@@ -2107,10 +3053,12 @@ class AICoPilotEngine:
         cf_info = risk_data.get("cool_flame", (False, "Nominal"))
         cool_flame, cool_msg = cf_info[0], cf_info[1]
         
-        g = cabin_state["gravity_g"]
-        o2 = cabin_state["oxygen_pct"]
-        p = cabin_state["pressure_kpa"]
-        v = cabin_state["airflow_cm_s"]
+        g = physics_models._safe_float(cabin_state.get("gravity_g", 0.0), 0.0)
+        o2 = physics_models._safe_float(cabin_state.get("oxygen_pct", 21.0), 21.0)
+        p = physics_models._safe_float(cabin_state.get("pressure_kpa", 101.3), 101.3)
+        v = physics_models._safe_float(cabin_state.get("airflow_cm_s", 10.0), 10.0)
+        t_c = physics_models._safe_float(cabin_state.get("temp_c", 21.0), 21.0)
+        rh = physics_models._safe_float(cabin_state.get("rh_pct", 45.0), 45.0)
         
         if lang == "vi":
             tier_vn = "Nguy kịch" if tier == "Critical" else "Rủi ro cao" if tier == "High" else "Trung bình" if tier == "Moderate" else "An toàn"
@@ -2118,13 +3066,13 @@ class AICoPilotEngine:
                 physics_explanation = (
                     f"**Xác nhận Trạng thái Tự dập tắt**: Ở nồng độ oxy khoang hiện tại là {o2:.1f}%, nồng độ này thấp hơn "
                     f"Giới hạn Dập tắt Hiệu dụng tính toán (MOC_eff = {eff_moc:.1f}%). "
-                    f"Trong môi trường này (g={g:.2f}g, v={v:.1f} cm/s), tổn thất nhiệt bức xạ từ vùng phản ứng vượt quá "
+                    f"Trong môi trường này (g={g:.2f}g, v={v:.1f} cm/s, T={t_c:.1f}°C, RH={rh:.0f}%), tổn thất nhiệt bức xạ từ vùng phản ứng vượt quá "
                     f"tốc độ giải phóng nhiệt hóa học của {chem}, khiến ngọn lửa tự sụp đổ và dập tắt hoàn toàn."
                 )
             else:
                 physics_explanation = (
                     f"**Nguy cơ Bùng cháy Gia tăng (SFRS: {sfrs:.1f}/100 - {tier_vn})**: "
-                    f"Khí quyển khoang ({o2:.1f}% O2) vượt quá ngưỡng bắt cháy ({eff_moc:.1f}% MOC) một biên độ **+{o2 - eff_moc:.1f}%**. "
+                    f"Khí quyển khoang ({o2:.1f}% O2, T={t_c:.1f}°C, RH={rh:.0f}%) vượt quá ngưỡng bắt cháy ({eff_moc:.1f}% MOC) một biên độ **+{o2 - eff_moc:.1f}%**. "
                     f"Trong vi trọng lực ({g:.2f}g), việc thiếu vắng lực nổi tự nhiên ngăn cản sản phẩm cháy bốc lên trên. "
                     f"Đặc biệt, luồng thông gió cưỡng bức ({v:.1f} cm/s) tạo ra chế độ số Peclet tối ưu: liên tục cấp oxy tươi "
                     f"vào chân ngọn lửa mà không gây làm nguội thổi tắt đối lưu. Điều này làm tăng tốc độ lan truyền ngọn lửa lên tới **{spread_rate:.2f} mm/s**."
@@ -2167,13 +3115,13 @@ class AICoPilotEngine:
                 physics_explanation = (
                     f"**Self-Extinguishing Status Verified**: At the current cabin oxygen level of {o2:.1f}%, the concentration is "
                     f"below the calculated Effective Extinction Limit (MOC_eff = {eff_moc:.1f}%). "
-                    f"In this environment (g={g:.2f}g, v={v:.1f} cm/s), radiative heat dissipation from the reaction zone exceeds "
+                    f"In this environment (g={g:.2f}g, v={v:.1f} cm/s, T={t_c:.1f}°C, RH={rh:.0f}%), radiative heat dissipation from the reaction zone exceeds "
                     f"the chemical heat release rate of {chem}, causing spontaneous flame collapse."
                 )
             else:
                 physics_explanation = (
                     f"**Elevated Combustion Hazard (SFRS: {sfrs:.1f}/100 - {tier})**: "
-                    f"The cabin atmosphere ({o2:.1f}% O2) exceeds the flammability threshold ({eff_moc:.1f}% MOC) by **+{o2 - eff_moc:.1f}% margin**. "
+                    f"The cabin atmosphere ({o2:.1f}% O2, T={t_c:.1f}°C, RH={rh:.0f}%) exceeds the flammability threshold ({eff_moc:.1f}% MOC) by **+{o2 - eff_moc:.1f}% margin**. "
                     f"In microgravity ({g:.2f}g), the absence of buoyant updraft prevents hot combustion products from rising away. "
                     f"Crucially, the forced ventilation airflow ({v:.1f} cm/s) creates an optimal Peclet number regime: it continually feeds fresh oxidizer "
                     f"to the flame front without imparting convective blowoff cooling. This results in an accelerating flame spread rate of **{spread_rate:.2f} mm/s**."
@@ -2221,7 +3169,9 @@ class AICoPilotEngine:
 
     @staticmethod
     @st.cache_data(ttl=900, show_spinner=False)
-    def call_online_ai(api_key, provider, mat_name, psi_id, mission, chem, moc_ug, moc_1g, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, sfrs, tier, eff_moc, spread_rate, cool_flame_bool, lang="en"):
+    def _call_online_ai_cached(_api_key, api_key_hash, provider, mat_name, psi_id, mission, chem, moc_ug, moc_1g, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, sfrs, tier, eff_moc, spread_rate, cool_flame_bool, lang="en", temp_c=21.0, rh_pct=45.0):
+        t_c = physics_models._safe_float(temp_c, 21.0)
+        rh = physics_models._safe_float(rh_pct, 45.0)
         prompt = f"""
 You are NASA's Chief Spacecraft Fire Safety and Microgravity Combustion Expert.
 Analyze the following spacecraft fire scenario based on NASA PSI (Physical Sciences Informatics) research:
@@ -2237,6 +3187,8 @@ CABIN ENVIRONMENT:
 - Oxygen Concentration: {oxygen_pct}%
 - Cabin Pressure: {pressure_kpa} kPa
 - Ventilation Airflow: {airflow_cm_s} cm/s
+- Cabin Temperature: {t_c:.1f}°C
+- Relative Humidity: {rh:.0f}% RH
 
 CALCULATED METRICS:
 - Effective MOC: {eff_moc:.2f}%
@@ -2253,9 +3205,9 @@ Provide an authoritative briefing structured in 3 clear sections:
         api_error_notice = None
         try:
             if provider == "Google Gemini":
-                gemini_models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash"]
+                gemini_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-1.5-flash"]
                 last_res = None
-                headers = {"x-goog-api-key": api_key.strip(), "Content-Type": "application/json"}
+                headers = {"x-goog-api-key": _api_key.strip(), "Content-Type": "application/json"}
                 payload = {
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800}
@@ -2266,18 +3218,30 @@ Provide an authoritative briefing structured in 3 clear sections:
                         res = requests.post(url, headers=headers, json=payload, timeout=15)
                         last_res = res
                         if res.status_code == 200:
-                            data = res.json()
-                            candidates = data.get("candidates") or []
-                            parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
-                            if parts and "text" in parts[0]:
-                                return parts[0]["text"], "online"
-                            api_error_notice = "⚠️ Phản hồi từ Gemini bị lọc hoặc rỗng." if lang == "vi" else "⚠️ Empty or filtered response from Gemini."
+                            try:
+                                data = res.json() if hasattr(res, "json") else {}
+                            except ValueError:
+                                data = {}
+                            candidates = data.get("candidates") if isinstance(data, dict) else None
+                            first_cand = candidates[0] if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict) else {}
+                            content_obj = first_cand.get("content") if isinstance(first_cand.get("content"), dict) else {}
+                            parts = content_obj.get("parts") if isinstance(content_obj.get("parts"), list) else []
+                            first_part = parts[0] if parts and isinstance(parts[0], dict) else {}
+                            cand_text = first_part.get("text")
+                            if isinstance(cand_text, str) and cand_text.strip():
+                                return cand_text, "online"
+                            if first_cand.get("finishReason") == "SAFETY":
+                                api_error_notice = "⚠️ Phản hồi từ Gemini bị bộ lọc an toàn chặn." if lang == "vi" else "⚠️ Gemini safety filter blocked response."
+                            else:
+                                api_error_notice = "⚠️ Phản hồi từ Gemini bị lọc hoặc rỗng." if lang == "vi" else "⚠️ Empty or filtered response from Gemini."
                             break
                         elif res.status_code == 404:
                             continue
                         else:
                             break
-                    except Exception:
+                    except requests.exceptions.Timeout:
+                        raise
+                    except requests.exceptions.RequestException:
                         continue
                 res = last_res
                 if res is not None and not api_error_notice:
@@ -2293,7 +3257,7 @@ Provide an authoritative briefing structured in 3 clear sections:
                     api_error_notice = "⚠️ Không thể kết nối tới Google Gemini API." if lang == "vi" else "⚠️ Could not connect to Gemini API."
             elif provider == "OpenAI":
                 url = "https://api.openai.com/v1/chat/completions"
-                headers = {"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json"}
+                headers = {"Authorization": f"Bearer {_api_key.strip()}", "Content-Type": "application/json"}
                 payload = {
                     "model": "gpt-4o-mini",
                     "messages": [
@@ -2304,10 +3268,17 @@ Provide an authoritative briefing structured in 3 clear sections:
                 }
                 res = requests.post(url, headers=headers, json=payload, timeout=15)
                 if res.status_code == 200:
-                    data = res.json()
-                    choices = data.get("choices") or []
-                    if choices and "message" in choices[0] and "content" in choices[0]["message"]:
-                        return choices[0]["message"]["content"], "online"
+                    try:
+                        data = res.json() if hasattr(res, "json") else {}
+                    except ValueError:
+                        data = {}
+                    choices = data.get("choices") if isinstance(data, dict) else None
+                    first_choice = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
+                    msg_obj = first_choice.get("message") if isinstance(first_choice.get("message"), dict) else {}
+                    content_text = msg_obj.get("content")
+                    if isinstance(content_text, str) and content_text.strip():
+                        return content_text, "online"
+                    api_error_notice = "⚠️ Phản hồi từ OpenAI bị rỗng hoặc thiếu nội dung." if lang == "vi" else "⚠️ Empty or malformed response from OpenAI."
                 elif res.status_code in (401, 403):
                     api_error_notice = "⚠️ [HTTP 401/403] Khóa OpenAI API Key không hợp lệ hoặc hết hạn." if lang == "vi" else "⚠️ [HTTP 401/403] Invalid OpenAI API Key."
                 elif res.status_code == 429:
@@ -2321,7 +3292,7 @@ Provide an authoritative briefing structured in 3 clear sections:
             
         if lang == "vi":
             fallback_text = f"""### 🔬 Động học Đốt cháy Vi Trọng lực
-Vật liệu {mat_name} ({psi_id}) dưới trọng lực {gravity_g:.2f}g và lưu tốc gió {airflow_cm_s:.1f} cm/s chịu ảnh hưởng chi phối bởi tương tác giữa khuếch tán phân tử và dòng đối lưu cưỡng bức.
+Vật liệu {mat_name} ({psi_id}) dưới trọng lực {gravity_g:.2f}g, lưu tốc gió {airflow_cm_s:.1f} cm/s, nhiệt độ {t_c:.1f}°C và độ ẩm {rh:.0f}% RH chịu ảnh hưởng chi phối bởi tương tác giữa khuếch tán phân tử và dòng đối lưu cưỡng bức.
 
 ### 🛠️ Thiết kế Tàu Vũ trụ & Khuyến nghị NASA-STD-6001B
 Khuyến cáo kiểm soát nồng độ oxy khoang dưới ngưỡng MOC hiệu dụng ({eff_moc:.1f}% O2). Đối với các chuyến bay dài ngày, ưu tiên thay thế bằng vật liệu nhóm Safe.
@@ -2331,7 +3302,7 @@ Khuyến cáo kiểm soát nồng độ oxy khoang dưới ngưỡng MOC hiệu 
 2. Sử dụng bình xịt Sương nước siêu mịn (Fine Water Mist < 50 µm) hoặc xả tràn khí CO2/N2. Phi hành đoàn lập tức mang mặt nạ PBE."""
         else:
             fallback_text = f"""### 🔬 Microgravity Combustion Dynamics
-Material {mat_name} ({psi_id}) under {gravity_g:.2f}g gravity and {airflow_cm_s:.1f} cm/s airflow is governed by molecular diffusion and forced boundary layer transport.
+Material {mat_name} ({psi_id}) under {gravity_g:.2f}g gravity, {airflow_cm_s:.1f} cm/s airflow, {t_c:.1f}°C cabin temperature, and {rh:.0f}% RH is governed by molecular diffusion and forced boundary layer transport.
 
 ### 🛠️ Spacecraft Design & NASA-STD-6001B Recommendations
 Ensure cabin oxygen is regulated strictly below the Effective MOC threshold ({eff_moc:.1f}% O2). Replace with non-flammable compliant polymers for exploration missions.
@@ -2341,7 +3312,19 @@ Ensure cabin oxygen is regulated strictly below the Effective MOC threshold ({ef
 2. Deploy certified Fine Water Mist (< 50 µm) or total flooding gaseous N2/CO2. Crew immediately don PBE."""
         if api_error_notice:
             fallback_text = f"> **{api_error_notice}**\n\n" + fallback_text
-        return fallback_text, "fallback" 
+        return fallback_text, "fallback"
+
+    @staticmethod
+    def call_online_ai(api_key, provider, mat_name, psi_id, mission, chem, moc_ug, moc_1g, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, sfrs, tier, eff_moc, spread_rate, cool_flame_bool, lang="en", temp_c=21.0, rh_pct=45.0):
+        clean_key = str(api_key or "").strip()
+        key_hash = hashlib.sha256(clean_key.encode("utf-8")).hexdigest()[:16] if clean_key else "empty"
+        return AICoPilotEngine._call_online_ai_cached(
+            clean_key, key_hash, provider, mat_name, psi_id, mission, chem,
+            moc_ug, moc_1g, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s,
+            sfrs, tier, eff_moc, spread_rate, cool_flame_bool, lang=lang,
+            temp_c=float(physics_models._safe_float(temp_c, 21.0)),
+            rh_pct=float(physics_models._safe_float(rh_pct, 45.0)),
+        ) 
 
 psi_bundle = load_nasa_psi_data()
 materials_df = psi_bundle["materials_df"]
@@ -2385,7 +3368,7 @@ with st.sidebar:
     render_html(f"""
         <div style="padding: 10px 0 16px 0; border-bottom: 1px solid #1F293D; margin-bottom: 16px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/e/e5/NASA_logo.svg" style="width: 38px; height: 38px;">
+                {render_mission_patch_svg(38, uid="sidebar")}
                 <div>
                     <div style="font-size: 0.95rem; font-weight: 800; color: #FFFFFF; font-family: 'Plus Jakarta Sans', sans-serif; letter-spacing: 0.05em;">
                         {t['sidebar_control_title']}
@@ -2420,45 +3403,81 @@ with st.sidebar:
         }
     }
 
+    def detect_preset_from_telemetry() -> str:
+        """Checks whether current session state matches any named spacecraft preset."""
+        cur = {
+            k: round(float(st.session_state.get(k, cfg["default"])), cfg["decimals"])
+            for k, cfg in TELEMETRY_CONFIG.items()
+        }
+        for preset_name, preset_vals in PRESET_PROFILES.items():
+            if all(math.isclose(cur[k], preset_vals[k], abs_tol=1e-3) for k in preset_vals):
+                return preset_name
+        return "CUSTOM"
+
+    def sync_telemetry_to_query_params():
+        """Reflects active telemetry and preset to URL query params."""
+        try:
+            if hasattr(st, "query_params"):
+                preset = st.session_state.get("preset_selector", "CUSTOM")
+                if st.query_params.get("preset") != preset:
+                    st.query_params["preset"] = preset
+                for k, cfg in TELEMETRY_CONFIG.items():
+                    val = float(st.session_state.get(k, cfg["default"]))
+                    val_str = f"{val:{cfg['format'][1:]}}"
+                    if st.query_params.get(cfg["qp_key"]) != val_str:
+                        st.query_params[cfg["qp_key"]] = val_str
+        except Exception:
+            pass
+
+    def on_slider_change(param_key: str):
+        """Callback fired when user drags st.slider."""
+        cfg = TELEMETRY_CONFIG[param_key]
+        val = round(float(st.session_state[f"{param_key}_slider"]), cfg["decimals"])
+        st.session_state[param_key] = val
+        st.session_state[f"{param_key}_num"] = val
+        st.session_state.preset_selector = detect_preset_from_telemetry()
+        sync_telemetry_to_query_params()
+
+    def on_num_change(param_key: str):
+        """Callback fired when user types in st.number_input."""
+        cfg = TELEMETRY_CONFIG[param_key]
+        raw_val = float(st.session_state[f"{param_key}_num"])
+        clamped_val = max(cfg["min"], min(cfg["max"], raw_val))
+        val = round(clamped_val, cfg["decimals"])
+        st.session_state[param_key] = val
+        st.session_state[f"{param_key}_num"] = val
+        st.session_state[f"{param_key}_slider"] = val
+        st.session_state.preset_selector = detect_preset_from_telemetry()
+        sync_telemetry_to_query_params()
+
     def apply_preset():
+        """Callback fired when user picks a preset from st.selectbox."""
         choice = st.session_state.get("preset_selector", "ISS")
-        if choice == "ISS":
-            st.session_state.gravity_val = 0.0
-            st.session_state.o2_val = 21.0
-            st.session_state.p_val = 101.3
-            st.session_state.v_val = 10.0
-        elif choice == "LUNAR_ROVER":
-            st.session_state.gravity_val = 0.16
-            st.session_state.o2_val = 30.0
-            st.session_state.p_val = 70.3
-            st.session_state.v_val = 12.0
-        elif choice == "ARTEMIS":
-            st.session_state.gravity_val = 0.16
-            st.session_state.o2_val = 34.0
-            st.session_state.p_val = 56.5
-            st.session_state.v_val = 15.0
-        elif choice == "SPACESUIT":
-            st.session_state.gravity_val = 0.16
-            st.session_state.o2_val = 100.0
-            st.session_state.p_val = 29.6
-            st.session_state.v_val = 6.0
-        elif choice == "MARS":
-            st.session_state.gravity_val = 0.38
-            st.session_state.o2_val = 26.0
-            st.session_state.p_val = 70.0
-            st.session_state.v_val = 8.0
-        elif choice == "EARTH":
-            st.session_state.gravity_val = 1.0
-            st.session_state.o2_val = 21.0
-            st.session_state.p_val = 101.3
-            st.session_state.v_val = 0.0
+        if choice in PRESET_PROFILES:
+            for k, v in PRESET_PROFILES[choice].items():
+                cfg = TELEMETRY_CONFIG[k]
+                val = round(float(v), cfg["decimals"])
+                st.session_state[k] = val
+                st.session_state[f"{k}_slider"] = val
+                st.session_state[f"{k}_num"] = val
+            sync_telemetry_to_query_params()
 
     if "preset_selector" not in st.session_state:
         st.session_state.preset_selector = "ISS"
 
-    for k, v in [("gravity_val", 0.0), ("o2_val", 21.0), ("p_val", 101.3), ("v_val", 10.0)]:
+    for k, v in [("gravity_val", 0.0), ("o2_val", 21.0), ("p_val", 101.3), ("v_val", 10.0), ("temp_val", 21.0), ("rh_val", 45.0)]:
         if k not in st.session_state:
             st.session_state[k] = v
+        if f"{k}_slider" not in st.session_state:
+            st.session_state[f"{k}_slider"] = st.session_state[k]
+        if f"{k}_num" not in st.session_state:
+            st.session_state[f"{k}_num"] = st.session_state[k]
+    if "audio_muted" not in st.session_state:
+        st.session_state["audio_muted"] = False
+    if "custom_materials" not in st.session_state:
+        st.session_state["custom_materials"] = []
+    if "rag_chat_history" not in st.session_state:
+        st.session_state["rag_chat_history"] = []
 
     st.markdown(f"#### {t['presets_header']}")
     st.selectbox(
@@ -2471,54 +3490,90 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown(f"#### {t['controls_header']}")
-    
-    def on_slider_change():
-        st.session_state.preset_selector = "CUSTOM"
 
     cur_g = float(st.session_state.get("gravity_val", 0.0))
     cur_o2 = float(st.session_state.get("o2_val", 21.0))
     cur_p = float(st.session_state.get("p_val", 101.3))
     cur_v = float(st.session_state.get("v_val", 10.0))
+    cur_t = float(st.session_state.get("temp_val", 21.0))
+    cur_rh = float(st.session_state.get("rh_val", 45.0))
 
-    def render_telemetry_control(icon, label, val_str, sub_str, badge_txt, badge_col, key, min_v, max_v, step_v, help_txt, ticks):
+    def render_telemetry_control(
+        icon: str,
+        label: str,
+        val_str: str,
+        sub_str: str,
+        badge_txt: str,
+        badge_col: str,
+        key: str,
+        min_v: float,
+        max_v: float,
+        step_v: float,
+        format_str: str = None,
+        help_txt: str = "",
+        ticks: list = None
+    ):
+        if ticks is None:
+            ticks = []
+        if format_str is None or isinstance(format_str, list):
+            if isinstance(format_str, list):
+                ticks = format_str
+            cfg_fmt = TELEMETRY_CONFIG.get(key, {}).get("format", "%.1f")
+            format_str = cfg_fmt
+
         ticks_html = "".join(
-            f"<span style='white-space: nowrap; color: {'#38BDF8; font-weight: 700' if active else '#64748B'};'>{txt}</span>"
+            f"<span style='white-space: nowrap; color: {'#38BDF8; font-weight: 700' if active else '#94A3B8'};'>{txt}</span>"
             for txt, active in ticks
         )
         with st.container(border=True, key=f"telemetry_card_{key}"):
-            render_html(f'''
-            <div class="ctrl-card-top">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; margin-bottom: 4px;">
-                    <span style="font-weight: 700; font-size: 0.78rem; color: #FFFFFF; line-height: 1.28; flex: 1 1 auto; word-break: break-word;">
-                        {icon} {label}
-                    </span>
-                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; font-weight: 800; color: #00F2FF; background: rgba(0, 242, 255, 0.12); border: 1px solid rgba(0, 242, 255, 0.38); padding: 2px 7px; border-radius: 6px; white-space: nowrap; flex: 0 0 auto;">
-                        {val_str}
-                    </span>
+            col_hdr_left, col_hdr_right = st.columns([1.35, 1.0], vertical_alignment="center")
+            with col_hdr_left:
+                st.markdown(f"""
+                <div style="font-weight: 700; font-size: 0.80rem; color: #FFFFFF; line-height: 1.25; margin-bottom: 2px;">
+                    {icon} {label}
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 6px;">
-                    <span style="font-size: 0.66rem; font-weight: 700; color: {badge_col}; line-height: 1.25; word-break: break-word; flex: 1 1 auto;">
-                        {badge_txt}
-                    </span>
-                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.63rem; color: #94A3B8; font-weight: 600; white-space: nowrap; flex: 0 0 auto;">
-                        {sub_str}
-                    </span>
+                <div style="font-size: 0.66rem; font-weight: 700; color: {badge_col}; line-height: 1.2;">
+                    {badge_txt}
                 </div>
-            </div>
-            ''')
-            slider_val = st.slider(
-                label, min_value=min_v, max_value=max_v, key=key, step=step_v,
-                help=help_txt, label_visibility="collapsed", on_change=on_slider_change
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.63rem; color: #94A3B8; font-weight: 600;">
+                    {sub_str}
+                </div>
+                """, unsafe_allow_html=True)
+            with col_hdr_right:
+                st.number_input(
+                    label=f"{label} (num)",
+                    min_value=min_v,
+                    max_value=max_v,
+                    step=step_v,
+                    format=format_str,
+                    key=f"{key}_num",
+                    label_visibility="collapsed",
+                    on_change=on_num_change,
+                    args=(key,)
+                )
+
+            st.slider(
+                label=f"{label} (slider)",
+                min_value=min_v,
+                max_value=max_v,
+                step=step_v,
+                format=format_str,
+                key=f"{key}_slider",
+                label_visibility="collapsed",
+                on_change=on_slider_change,
+                args=(key,),
+                help=help_txt
             )
+
             render_html(f'''
-            <div style="display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; color: #64748B; line-height: 1.45; min-height: 18px; height: auto; padding-top: 4px; padding-bottom: 3px; overflow: visible;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; color: #94A3B8; line-height: 1.45; min-height: 18px; padding-top: 2px; padding-bottom: 2px;">
                 {ticks_html}
             </div>
             ''')
-        return slider_val
+        return float(st.session_state[key])
 
     if cur_g <= 0.05:
-        g_txt, g_col = ("🛰️ Vi trọng lực (0g ISS)" if lang == "vi" else "🛰️ Microgravity (0g ISS)"), "#00F2FF"
+        g_txt, g_col = ("🛰️ Vi trọng lực (0g ISS)" if lang == "vi" else "🛰️ Microgravity (0g ISS)"), "#38BDF8"
     elif cur_g <= 0.25:
         g_txt, g_col = ("🌙 Bán trọng lực (Mặt Trăng)" if lang == "vi" else "🌙 Lunar Partial-G (~0.16g)"), "#C084FC"
     elif cur_g <= 0.60:
@@ -2529,7 +3584,7 @@ with st.sidebar:
     gravity_label = t.get("gravity_label", "Mức Trọng lực" if lang == "vi" else "Gravity Level")
     gravity_g = render_telemetry_control(
         "🌍", gravity_label, f"{cur_g:.2f} g", f"{cur_g * 9.81:.1f} m/s²",
-        g_txt, g_col, "gravity_val", 0.00, 1.00, 0.01, t["gravity_help"],
+        g_txt, g_col, "gravity_val", 0.00, 1.00, 0.01, "%.2f", t["gravity_help"],
         [("0g ISS", cur_g <= 0.05), ("0.16g Moon", 0.05 < cur_g <= 0.25), ("0.38g Mars", 0.25 < cur_g <= 0.60), ("1.0g Earth", cur_g > 0.60)]
     )
 
@@ -2545,7 +3600,7 @@ with st.sidebar:
     oxygen_label = t.get("oxygen_label", "Nồng độ Oxy" if lang == "vi" else "Oxygen Level")
     oxygen_pct = render_telemetry_control(
         "🧪", oxygen_label, f"{cur_o2:.1f}% O₂", f"pO₂ {cur_o2 * cur_p / 100.0:.1f} kPa",
-        o2_txt, o2_col, "o2_val", 14.0, 100.0, 0.5, t["oxygen_help"],
+        o2_txt, o2_col, "o2_val", 14.0, 100.0, 0.1, "%.1f", t["oxygen_help"],
         [
             ("14% Tắt" if lang == "vi" else "14% Quench", cur_o2 < 17.0),
             ("21% ISS", 17.0 <= cur_o2 <= 23.5),
@@ -2566,7 +3621,7 @@ with st.sidebar:
     pressure_label = t.get("pressure_label", "Áp suất Khoang" if lang == "vi" else "Cabin Pressure")
     pressure_kpa = render_telemetry_control(
         "🧭", pressure_label, f"{cur_p:.1f} kPa", f"{cur_p / 6.89476:.1f} psi",
-        p_txt, p_col, "p_val", 25.0, 105.0, 0.5, t["pressure_help"],
+        p_txt, p_col, "p_val", 25.0, 105.0, 0.1, "%.1f", t["pressure_help"],
         [("29.6 EVA", cur_p <= 38.0), ("56.5 Artemis", 38.0 < cur_p <= 64.0), ("70 Mars", 64.0 < cur_p <= 85.0), ("101.3 ISS", cur_p > 85.0)]
     )
     pressure_psi = pressure_kpa / 6.89476
@@ -2582,8 +3637,8 @@ with st.sidebar:
 
     airflow_label = t.get("airflow_label", "Vận tốc Gió" if lang == "vi" else "Airflow Velocity")
     airflow_cm_s = render_telemetry_control(
-        "💨", airflow_label, f"{cur_v:.0f} cm/s", f"{cur_v / 100.0:.2f} m/s",
-        v_txt, v_col, "v_val", 0.0, 50.0, 1.0, t["airflow_help"],
+        "💨", airflow_label, f"{cur_v:.1f} cm/s", f"{cur_v / 100.0:.2f} m/s",
+        v_txt, v_col, "v_val", 0.0, 50.0, 0.5, "%.1f", t["airflow_help"],
         [
             ("<2 Tắt" if lang == "vi" else "<2 Quench", cur_v < 2.0),
             ("5-12 Đỉnh" if lang == "vi" else "5-12 Peak", 2.0 <= cur_v <= 14.0),
@@ -2592,12 +3647,66 @@ with st.sidebar:
         ]
     )
 
+    if cur_t <= 24.0:
+        t_txt, t_col = ("❄️ Mát / Chuẩn ISS" if lang == "vi" else "❄️ Nominal Cool"), "#10B981"
+    elif cur_t <= 35.0:
+        t_txt, t_col = ("🌡️ Khoang Ấm" if lang == "vi" else "🌡️ Elevated Preheat"), "#F59E0B"
+    else:
+        t_txt, t_col = ("🔥 Gia nhiệt Sơ bộ Cao" if lang == "vi" else "🔥 High Pre-Heat"), "#E03C31"
+
+    temp_label = t.get("temp_label", "Nhiệt độ Khoang" if lang == "vi" else "Cabin Temperature")
+    temp_c = render_telemetry_control(
+        "🌡️", temp_label, f"{cur_t:.1f} °C", f"{cur_t + 273.15:.1f} K",
+        t_txt, t_col, "temp_val", 10.0, 50.0, 0.5, "%.1f", t.get("temp_help", ""),
+        [
+            ("10°C" if lang == "vi" else "10°C", cur_t < 18.0),
+            ("21°C ISS", 18.0 <= cur_t <= 26.0),
+            ("35°C", 26.0 < cur_t <= 40.0),
+            ("50°C", cur_t > 40.0),
+        ]
+    )
+
+    if cur_rh < 25.0:
+        rh_txt, rh_col = ("🏜️ Không khí Khô" if lang == "vi" else "🏜️ Arid / Static Risk"), "#F59E0B"
+    elif cur_rh <= 60.0:
+        rh_txt, rh_col = ("💧 Chuẩn Khí quyển" if lang == "vi" else "💧 Nominal RH"), "#10B981"
+    else:
+        rh_txt, rh_col = ("🌫️ Pha loãng Hơi nước" if lang == "vi" else "🌫️ High Vapor Inerting"), "#38BDF8"
+
+    rh_label = t.get("rh_label", "Độ ẩm Tương đối (RH)" if lang == "vi" else "Relative Humidity (RH)")
+    rh_pct = render_telemetry_control(
+        "💧", rh_label, f"{cur_rh:.1f} %", f"P_sat={physics_models.arden_buck_vapor_pressure_kpa(cur_t):.2f}kPa",
+        rh_txt, rh_col, "rh_val", 10.0, 90.0, 1.0, "%.1f", t.get("rh_help", ""),
+        [
+            ("10%", cur_rh < 25.0),
+            ("45% ISS", 25.0 <= cur_rh <= 60.0),
+            ("75%", 60.0 < cur_rh <= 80.0),
+            ("90%", cur_rh > 80.0),
+        ]
+    )
+
+    st.markdown("<hr style='margin: 0.45rem 0; border-color: rgba(148,163,184,0.2);'>", unsafe_allow_html=True)
+    st.session_state["audio_muted"] = st.checkbox(
+        t.get("audio_mute_label", "🔇 Mute Critical Alert Audio (SFRS > 85)"),
+        value=bool(st.session_state.get("audio_muted", False)),
+        key="sidebar_audio_mute_chk",
+    )
+    st.caption(
+        t.get("audio_muted_status", "Alert audio MUTED")
+        if st.session_state["audio_muted"]
+        else t.get("audio_unmuted_status", "Alert chime ARMED")
+    )
+
     cabin_state = {
         "gravity_g": gravity_g,
         "oxygen_pct": oxygen_pct,
         "pressure_kpa": pressure_kpa,
         "pressure_psi": pressure_psi,
         "airflow_cm_s": airflow_cm_s,
+        "temperature_c": temp_c,
+        "humidity_pct": rh_pct,
+        "temp_c": temp_c,
+        "rh_pct": rh_pct,
         "preset_name": PRESET_LABELS[lang].get(st.session_state.preset_selector, st.session_state.preset_selector)
     }
 
@@ -2648,25 +3757,43 @@ with st.sidebar:
                 System Metadata & Attribution
             </div>
             <div style="font-size: 0.78rem; color: #CBD5E1; line-height: 1.55;">
-                <b style="color: #64748B;">Team Lead & Architect:</b> Vũ Bảo Nam<br>
-                <b style="color: #64748B;">Members:</b> Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh<br>
-                <b style="color: #64748B;">Team Lead & Architect:</b> Vũ Bảo Nam<br>
-                <b style="color: #64748B;">Members:</b> Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh<br>
-                <b style="color: #64748B;">Lab / Team:</b> Bebo ZeroG-X<br>
-                <b style="color: #64748B;">Institution:</b> THPT FPT (FPT High School)
+                <b style="color: #94A3B8;">Team Lead & Architect:</b> Vũ Bảo Nam<br>
+                <b style="color: #94A3B8;">Members:</b> Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh<br>
+                <b style="color: #94A3B8;">Lab / Team:</b> Bebo ZeroG-X<br>
+                <b style="color: #94A3B8;">Institution:</b> THPT FPT (FPT High School)
             </div>
         </div>
     """)
 
 @st.cache_data(show_spinner=False)
-def evaluate_all_materials(gravity_g: float, oxygen_pct: float, pressure_kpa: float, airflow_cm_s: float, lang: str):
+def evaluate_all_materials(gravity_g: float, oxygen_pct: float, pressure_kpa: float, airflow_cm_s: float, lang: str, temp_c: float = 21.0, rh_pct: float = 45.0):
+    t_val = physics_models._safe_float(temp_c, 21.0)
+    rh_val = physics_models._safe_float(rh_pct, 45.0)
+    p_val = physics_models._safe_float(pressure_kpa, 101.3)
+    if (
+        RUST_BACKEND_AVAILABLE
+        and math.isclose(t_val, 21.0, abs_tol=1e-9)
+        and math.isclose(rh_val, 45.0, abs_tol=1e-9)
+        and math.isclose(p_val, 101.3, abs_tol=1e-6)
+    ):
+        try:
+            raw_mats = materials_df.to_dict(orient="records")
+            rows, cf_count = rust_core.evaluate_all_materials(
+                raw_mats, float(gravity_g), float(oxygen_pct), float(p_val), float(airflow_cm_s), lang
+            )
+            df_sorted = pd.DataFrame(rows)
+            return df_sorted, int(cf_count)
+        except Exception:
+            pass
     rows = []
     cf_count = 0
     for _, mat in materials_df.iterrows():
-        eff_moc = MicrogravityCombustionPhysics.calculate_effective_moc(mat, gravity_g, airflow_cm_s, pressure_kpa)
-        spread = MicrogravityCombustionPhysics.calculate_flame_spread_rate(mat, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, eff_moc)
-        sfrs, tier, color = MicrogravityCombustionPhysics.calculate_space_fire_risk_score(mat, eff_moc, spread, oxygen_pct, pressure_kpa, airflow_cm_s)
-        cf_active, cf_msg = MicrogravityCombustionPhysics.detect_cool_flames(mat, gravity_g, airflow_cm_s, oxygen_pct, pressure_kpa, lang=lang, eff_moc=eff_moc)
+        eff_moc = MicrogravityCombustionPhysics.calculate_effective_moc(mat, gravity_g, airflow_cm_s, p_val, temp_c=t_val, rh_pct=rh_val)
+        spread = MicrogravityCombustionPhysics.calculate_flame_spread_rate(mat, gravity_g, oxygen_pct, p_val, airflow_cm_s, eff_moc, temp_c=t_val, rh_pct=rh_val)
+        sfrs, tier, color = MicrogravityCombustionPhysics.calculate_space_fire_risk_score(mat, eff_moc, spread, oxygen_pct, p_val, airflow_cm_s)
+        cf_active, cf_msg = MicrogravityCombustionPhysics.detect_cool_flames(
+            mat, gravity_g, airflow_cm_s, oxygen_pct, p_val, lang=lang, eff_moc=eff_moc, temp_c=t_val, rh_pct=rh_val
+        )
         if cf_active:
             cf_count += 1
         rows.append({
@@ -2687,12 +3814,491 @@ def evaluate_all_materials(gravity_g: float, oxygen_pct: float, pressure_kpa: fl
     df_sorted = pd.DataFrame(rows).sort_values(by="sfrs", ascending=False).reset_index(drop=True)
     return df_sorted, cf_count
 
-results_df, cool_flame_alerts_count = evaluate_all_materials(float(gravity_g), float(oxygen_pct), float(pressure_kpa), float(airflow_cm_s), lang)
+@st.cache_data(show_spinner=False)
+def generate_sfrs_figure(
+    gravity_g: float,
+    oxygen_pct: float,
+    pressure_kpa: float,
+    airflow_cm_s: float,
+    lang: str = "vi",
+    temp_c: float = 21.0,
+    rh_pct: float = 45.0,
+):
+    df, _ = evaluate_all_materials(
+        float(gravity_g),
+        float(oxygen_pct),
+        float(pressure_kpa),
+        float(airflow_cm_s),
+        lang,
+        temp_c=float(temp_c),
+        rh_pct=float(rh_pct),
+    )
+    t = TRANSLATIONS[lang]
+    colors = df["color"].tolist()
+    mat_names = df["material_name"].apply(
+        lambda x: x.split(" (")[0].replace(" / Alkane Fuel", "").replace(" Blend", "")
+    )
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig.add_trace(
+        go.Bar(
+            x=mat_names,
+            y=df["sfrs"],
+            marker=dict(
+                color=colors,
+                line=dict(color="rgba(255, 255, 255, 0.25)", width=1),
+                cornerradius=6
+            ),
+            name="SFRS (0-100)",
+            hovertemplate="<b>%{x}</b><br>Risk Score: %{y:.1f}<extra></extra>"
+        ),
+        secondary_y=False
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=mat_names,
+            y=df["effective_moc"],
+            mode="lines+markers",
+            line=dict(color="#38BDF8", width=2.2, shape="spline"),
+            marker=dict(size=7, color="#38BDF8", symbol="circle", line=dict(color="#FFFFFF", width=1.2)),
+            name="Effective MOC (%)",
+            hovertemplate="<b>%{x}</b><br>Effective MOC: %{y:.1f}% O2<extra></extra>"
+        ),
+        secondary_y=True
+    )
+    fig.add_hline(
+        y=oxygen_pct,
+        line_dash="dash",
+        line_color="#EF4444",
+        line_width=1.8,
+        secondary_y=True,
+        annotation_text=f" Cabin O₂: {oxygen_pct:.1f}% ",
+        annotation_position="top right",
+        annotation_font=dict(color="#FFFFFF", size=10, family="'Plus Jakarta Sans', sans-serif"),
+        annotation_bgcolor="rgba(224, 60, 49, 0.85)",
+        annotation_bordercolor="#EF4444",
+        annotation_borderpad=3
+    )
+    fig.update_layout(
+        title=None,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(18, 48, 96, 0.22)",
+        font=dict(color="#9CA3AF", family="'Plus Jakarta Sans', sans-serif"),
+        xaxis=dict(
+            showgrid=False,
+            tickangle=-30,
+            tickfont=dict(size=9.5, color="#CBD5E1"),
+            automargin=True
+        ),
+        yaxis=dict(
+            title=dict(text=t["chart_sfrs_yaxis"], font=dict(size=10.5)),
+            range=[0, 108],
+            gridcolor="rgba(125, 211, 252, 0.18)",
+            automargin=True
+        ),
+        yaxis2=dict(
+            title=dict(text="MOC (% O₂)", font=dict(size=10.5)),
+            range=[0, max(50.0, float(df["effective_moc"].max()) + 6, float(oxygen_pct) + 8.0)],
+            gridcolor="rgba(31, 41, 61, 0.2)",
+            overlaying="y",
+            side="right",
+            automargin=True
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0.0,
+            font=dict(size=9.5, color="#E2E8F0", family="'Plus Jakarta Sans', sans-serif"),
+            bgcolor="rgba(18, 46, 92, 0.55)",
+            bordercolor="rgba(56, 189, 248, 0.25)",
+            borderwidth=1
+        ),
+        height=375,
+        margin=dict(t=25, b=55, l=50, r=50)
+    )
+    return fig
+
+@st.cache_data(show_spinner=False)
+def generate_paradox_figure(
+    mat_dict_tuple: tuple,
+    oxygen_pct: float,
+    pressure_kpa: float,
+    gravity_g: float,
+    airflow_cm_s: float,
+    current_top_spread: float,
+    lang: str = "vi",
+    temp_c: float = 21.0,
+    rh_pct: float = 45.0,
+):
+    v_range, spread_0g, spread_1g, spread_current_g = calculate_cached_paradox_sweep(
+        mat_dict_tuple,
+        float(oxygen_pct),
+        float(pressure_kpa),
+        float(gravity_g),
+        temp_c=float(temp_c),
+        rh_pct=float(rh_pct),
+    )
+    t = TRANSLATIONS[lang]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=v_range,
+        y=spread_0g,
+        mode="lines",
+        name="0g (Cưỡng bức)" if lang == "vi" else "0g (Forced Flow)",
+        line=dict(color="#38BDF8", width=3, shape="spline")
+    ))
+    fig.add_trace(go.Scatter(
+        x=v_range,
+        y=spread_1g,
+        mode="lines",
+        name="1g (Trái Đất)" if lang == "vi" else "1g (Earth Baseline)",
+        line=dict(color="#F59E0B", width=2, dash="dash", shape="spline")
+    ))
+    if 0.005 <= gravity_g <= 0.995 and spread_current_g:
+        fig.add_trace(go.Scatter(
+            x=v_range,
+            y=spread_current_g,
+            mode="lines",
+            name=f"{gravity_g:.2f}g",
+            line=dict(color="#E03C31", width=2.5, dash="dot", shape="spline")
+        ))
+    fig.add_trace(go.Scatter(
+        x=[airflow_cm_s],
+        y=[current_top_spread],
+        mode="markers",
+        name=f"Cabin V={airflow_cm_s:.0f} cm/s",
+        marker=dict(size=12, color="#E03C31", symbol="diamond", line=dict(color="#FFFFFF", width=2))
+    ))
+    if sofie_df is not None and not sofie_df.empty:
+        sofie_0g = sofie_df[sofie_df['gravity_level'].str.contains('0g', case=False, na=False)]
+        if not sofie_0g.empty:
+            fig.add_trace(go.Scatter(
+                x=sofie_0g['airflow_velocity_cm_s'],
+                y=sofie_0g['flame_spread_rate_mm_s'],
+                mode="markers",
+                name="NASA SoFIE CIR (0g Flight Data)" if lang == "en" else "Dữ liệu bay NASA SoFIE (0g CIR)",
+                marker=dict(size=8, color="#00F2FF", symbol="circle-open-dot", line=dict(color="#00F2FF", width=2)),
+                hovertemplate="<b>NASA SoFIE CIR Flight Run</b><br>ID: %{text}<br>Gió thổi: %{x} cm/s<br>Tốc độ cháy: %{y} mm/s<extra></extra>",
+                text=sofie_0g['test_id'] if 'test_id' in sofie_0g.columns else sofie_0g.iloc[:, 0]
+            ))
+        if 0.05 <= gravity_g <= 0.85:
+            g_tag = "0.16g" if gravity_g < 0.25 else "0.38g"
+            sofie_pg = sofie_df[sofie_df['gravity_level'].str.contains(g_tag, case=False, na=False)]
+            if not sofie_pg.empty:
+                fig.add_trace(go.Scatter(
+                    x=sofie_pg['airflow_velocity_cm_s'],
+                    y=sofie_pg['flame_spread_rate_mm_s'],
+                    mode="markers",
+                    name=f"NASA SoFIE ({g_tag} Flight Data)",
+                    marker=dict(size=8, color="#F59E0B", symbol="diamond-open", line=dict(color="#F59E0B", width=2)),
+                    hovertemplate=f"<b>NASA SoFIE {g_tag} Run</b><br>ID: %{{text}}<br>Gió thổi: %{{x}} cm/s<br>Tốc độ cháy: %{{y}} mm/s<extra></extra>",
+                    text=sofie_pg['test_id'] if 'test_id' in sofie_pg.columns else sofie_pg.iloc[:, 0]
+                ))
+    fig.update_layout(
+        title=None,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(18, 48, 96, 0.22)",
+        font=dict(color="#9CA3AF", family="'Plus Jakarta Sans', sans-serif"),
+        xaxis=dict(
+            title=dict(text=t["chart_paradox_xaxis"], font=dict(size=10.5)),
+            gridcolor="rgba(125, 211, 252, 0.18)",
+            automargin=True
+        ),
+        yaxis=dict(
+            title=dict(text=t["chart_paradox_yaxis"], font=dict(size=10.5)),
+            gridcolor="rgba(125, 211, 252, 0.18)",
+            automargin=True
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0.0,
+            font=dict(size=9.5, color="#E2E8F0", family="'Plus Jakarta Sans', sans-serif"),
+            bgcolor="rgba(18, 46, 92, 0.55)",
+            bordercolor="rgba(56, 189, 248, 0.25)",
+            borderwidth=1
+        ),
+        height=375,
+        margin=dict(t=25, b=50, l=50, r=35)
+    )
+    return fig
+
+@st.cache_data(show_spinner=False)
+def generate_boundary_figure(
+    mat_dict_tuple: tuple,
+    gravity_g: float,
+    pressure_kpa: float,
+    airflow_cm_s: float,
+    oxygen_pct: float,
+    lang: str = "vi",
+    temp_c: float = 21.0,
+    rh_pct: float = 45.0,
+):
+    t_val = float(temp_c)
+    rh_val = float(rh_pct)
+    v_pts, moc_pts = calculate_cached_boundary_sweep(
+        mat_dict_tuple, float(gravity_g), float(pressure_kpa), temp_c=t_val, rh_pct=rh_val
+    )
+    t = TRANSLATIONS[lang]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=v_pts,
+        y=moc_pts,
+        mode="lines",
+        line=dict(color="#E03C31", width=3),
+        name="Extinction Boundary (MOC_eff)",
+        fill="tozeroy",
+        fillcolor="rgba(224, 60, 49, 0.12)"
+    ))
+
+    sel_mat_dict = dict(mat_dict_tuple)
+    cur_eff_moc = MicrogravityCombustionPhysics.calculate_effective_moc(
+        sel_mat_dict, gravity_g, airflow_cm_s, pressure_kpa, temp_c=t_val, rh_pct=rh_val
+    )
+    is_burning = oxygen_pct >= cur_eff_moc
+    op_color = "#E03C31" if is_burning else "#10B981"
+    op_text = t["boundary_burn"] if is_burning else t["boundary_extinguished"]
+
+    fig.add_trace(go.Scatter(
+        x=[airflow_cm_s],
+        y=[oxygen_pct],
+        mode="markers+text",
+        name=f"Cabin: {op_text}",
+        text=[f"  Cabin ({airflow_cm_s:.0f} cm/s, {oxygen_pct:.1f}% O2) - {op_text}"],
+        textposition="top right",
+        textfont=dict(color=op_color, size=11, family="JetBrains Mono"),
+        marker=dict(size=14, color=op_color, symbol="star", line=dict(color="#FFFFFF", width=1.5))
+    ))
+
+    if bass_df is not None and not bass_df.empty:
+        mat_kw = sel_mat_dict.get("material_name", "").split()[0].lower()
+        bass_sub = bass_df[bass_df['material'].str.lower().str.contains(mat_kw, na=False)]
+        if bass_sub.empty:
+            bass_sub = bass_df.head(6)
+        fig.add_trace(go.Scatter(
+            x=bass_sub['airflow_velocity_cm_s'],
+            y=bass_sub['limiting_oxygen_index_pct'],
+            mode="markers",
+            name="NASA BASS-II Flight Limits" if lang == "en" else "Giới hạn dập tắt NASA BASS-II (Bay)",
+            marker=dict(size=9, color="#38BDF8", symbol="triangle-up", line=dict(color="#FFFFFF", width=1.5)),
+            hovertemplate="<b>NASA BASS-II Flight Limit</b><br>ID: %{text}<br>Gió thổi: %{x} cm/s<br>LOI/MOC: %{y:.1f}% O2<extra></extra>",
+            text=bass_sub['test_id'] if 'test_id' in bass_sub.columns else bass_sub.iloc[:, 0]
+        ))
+    if saffire_df is not None and not saffire_df.empty:
+        saffire_ext = saffire_df[saffire_df['extinction_mode'] != 'None (Complete Burn)']
+        if not saffire_ext.empty:
+            fig.add_trace(go.Scatter(
+                x=saffire_ext['airflow_velocity_cm_s'],
+                y=saffire_ext['oxygen_pct'],
+                mode="markers",
+                name="NASA Saffire Quenched Runs" if lang == "en" else "Điểm dập tắt NASA Saffire (Cygnus)",
+                marker=dict(size=9, color="#F97316", symbol="square", line=dict(color="#FFFFFF", width=1.5)),
+                hovertemplate="<b>NASA Saffire Flight Test</b><br>Mission: %{text}<br>Gió: %{x} cm/s<br>O2: %{y:.1f}%<extra></extra>",
+                text=saffire_ext['test_id'] if 'test_id' in saffire_ext.columns else saffire_ext.iloc[:, 0]
+            ))
+
+    fig.add_annotation(
+        x=2.0, y=moc_pts[2] + 4,
+        text=t["annotation_quench"],
+        showarrow=True, arrowhead=2, arrowcolor="#38BDF8", font=dict(color="#38BDF8", size=10)
+    )
+    fig.add_annotation(
+        x=42.0, y=moc_pts[-5] + 3,
+        text=t["annotation_blowoff"],
+        showarrow=True, arrowhead=2, arrowcolor="#F59E0B", font=dict(color="#F59E0B", size=10)
+    )
+
+    fig.update_layout(
+        title=None,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(18, 48, 96, 0.22)",
+        font=dict(color="#9CA3AF", family="'Plus Jakarta Sans', sans-serif"),
+        xaxis=dict(title=t["boundary_xaxis"], range=[0, 52], gridcolor="rgba(125, 211, 252, 0.18)", automargin=True),
+        yaxis=dict(title=t["boundary_yaxis"], range=[10, max(45.0, float(np.max(moc_pts)) + 6.0, float(oxygen_pct) + 6.0)], gridcolor="rgba(125, 211, 252, 0.18)", automargin=True),
+        height=400,
+        margin=dict(t=25, b=55, l=55, r=40)
+    )
+    fig.add_annotation(
+        text="© 2026 Bebo ZeroG-X Team (Vu Bao Nam, Do Duy Nam, Luong Duc Tung, Trinh Duc Anh) | NASA Space Apps",
+        xref="paper", yref="paper",
+        x=1.0, y=-0.22,
+        showarrow=False,
+        font=dict(size=8.5, color="rgba(255, 255, 255, 0.4)", family="'JetBrains Mono', monospace"),
+        xanchor="right", yanchor="top"
+    )
+    return fig
+
+@st.cache_data(show_spinner=False)
+def generate_2d_contour_figure(
+    gravity_g: float,
+    airflow_cm_s: float,
+    peak_temp_k: float,
+    is_extinguished: bool = False,
+    lang: str = "vi"
+):
+    x_pts, y_pts, T, c_scale = calculate_temperature_mesh(
+        float(gravity_g), float(airflow_cm_s), float(peak_temp_k), is_extinguished=is_extinguished
+    )
+    t = TRANSLATIONS[lang]
+
+    fig = go.Figure(data=go.Contour(
+        z=T,
+        x=x_pts,
+        y=y_pts,
+        colorscale=c_scale,
+        contours=dict(
+            coloring='heatmap',
+            showlabels=True,
+            labelfont=dict(size=9, color='white', family='JetBrains Mono')
+        ),
+        colorbar=dict(
+            title=dict(text=t["contour_temp_bar"], font=dict(color="#9CA3AF", size=10)),
+            tickfont=dict(color="#9CA3AF", size=8.5, family="JetBrains Mono"),
+            thickness=14,
+            len=0.92
+        ),
+        hovertemplate="X: %{x:.1f} cm<br>Y: %{y:.1f} cm<br><b>Temp: %{z:.0f} K</b><extra></extra>"
+    ))
+
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(10, 24, 52, 0.45)",
+        font=dict(color="#9CA3AF", family="'Plus Jakarta Sans', sans-serif"),
+        xaxis=dict(
+            title=dict(text=t["contour_radial_x"], font=dict(size=10, color="#94A3B8", family="'JetBrains Mono', monospace")),
+            gridcolor="rgba(125, 211, 252, 0.15)",
+            zerolinecolor="#334155",
+            automargin=True,
+            tickfont=dict(family="'JetBrains Mono', monospace", size=8.5, color="#94A3B8")
+        ),
+        yaxis=dict(
+            title=dict(text=t["contour_axial_y"], font=dict(size=10, color="#94A3B8", family="'JetBrains Mono', monospace")),
+            gridcolor="rgba(125, 211, 252, 0.15)",
+            zerolinecolor="#334155",
+            automargin=True,
+            tickfont=dict(family="'JetBrains Mono', monospace", size=8.5, color="#94A3B8")
+        ),
+        height=440,
+        margin=dict(t=20, b=40, l=55, r=40)
+    )
+    fig.add_annotation(
+        text="© 2026 Bebo ZeroG-X • NASA PSI",
+        xref="paper", yref="paper",
+        x=1.0, y=-0.18,
+        showarrow=False,
+        font=dict(size=8, color="rgba(255, 255, 255, 0.35)", family="'JetBrains Mono', monospace"),
+        xanchor="right", yanchor="top"
+    )
+    return fig
+
+results_df, cool_flame_alerts_count = evaluate_all_materials(
+    float(gravity_g), float(oxygen_pct), float(pressure_kpa), float(airflow_cm_s), lang, float(temp_c), float(rh_pct)
+)
+
+# Merge any user-defined Custom Composite Materials saved in session_state (M5)
+_custom_mats = st.session_state.get("custom_materials", [])
+if _custom_mats:
+    _env_live = {
+        "gravity_g": float(gravity_g),
+        "oxygen_pct": float(oxygen_pct),
+        "pressure_kpa": float(pressure_kpa),
+        "airflow_cm_s": float(airflow_cm_s),
+        "temp_c": float(temp_c),
+        "rh_pct": float(rh_pct),
+    }
+    _custom_rows = []
+    for _idx, _cm in enumerate(_custom_mats):
+        _ev = physics_models.evaluate_custom_composite(_cm, _env_live)
+        _tier = _ev["tier"]
+        _color = "#E03C31" if _tier == "Critical" else ("#F59E0B" if _tier == "High" else ("#38BDF8" if _tier == "Moderate" else "#10B981"))
+        if _ev["cool_flame_risk"]:
+            cool_flame_alerts_count += 1
+        _raw_mat_norm = dict(_cm)
+        _raw_mat_norm.setdefault("material_name", str(_ev["name"]))
+        _raw_mat_norm.setdefault("psi_id", "CUSTOM-SPEC")
+        _raw_mat_norm.setdefault("mission", "User Composite Bench")
+        _raw_mat_norm.setdefault("category", "Custom Composite")
+        _raw_mat_norm.setdefault("geometry", "Custom Composite Slab")
+        _raw_mat_norm.setdefault("flame_morphology", "Custom Polymer Transport")
+        _raw_mat_norm.setdefault("chemical_formula", "Custom Polymer Matrix")
+        _raw_mat_norm.setdefault("heat_of_combustion_mj_kg", float(_cm.get("hoc_mj_kg", 20.0)))
+        _raw_mat_norm.setdefault("moc_1g", float(_cm.get("moc_1g", 21.0)))
+        _raw_mat_norm.setdefault("moc_microg", float(_cm.get("moc_ug", 21.0)))
+        _raw_mat_norm.setdefault("base_spread_rate_mm_s", round(_ev["spread_rate_cm_s"] * 10.0, 3))
+        _custom_rows.append({
+            "material_id": f"CUSTOM-{_idx + 1}",
+            "material_name": html.escape(str(_ev["name"]), quote=True),
+            "category": "Custom Composite",
+            "psi_id": "CUSTOM-SPEC",
+            "mission": "User Composite Bench",
+            "effective_moc": _ev["moc_eff"],
+            "flame_spread_rate_mm_s": round(_ev["spread_rate_cm_s"] * 10.0, 3),
+            "spread_rate": round(_ev["spread_rate_cm_s"] * 10.0, 3),
+            "sfrs": _ev["sfrs"],
+            "tier": _tier if _ev["sfrs"] > 0 else "Safe",
+            "color": _color,
+            "cool_flame": (bool(_ev["cool_flame_risk"]), "Cool Flame NTC Envelope" if _ev["cool_flame_risk"] else "Nominal"),
+            "raw_mat": _raw_mat_norm,
+        })
+    if _custom_rows:
+        results_df = pd.concat([results_df, pd.DataFrame(_custom_rows)], ignore_index=True).sort_values(by="sfrs", ascending=False).reset_index(drop=True)
 
 critical_count = len(results_df[results_df["tier"] == "Critical"])
 high_count = len(results_df[results_df["tier"] == "High"])
 flammable_count = len(results_df[results_df["sfrs"] > 0])
-max_sfrs = results_df["sfrs"].max()
+max_sfrs = float(results_df["sfrs"].max())
+
+# M2: Critical Hazard Viewport Border Pulse & Audible Web Audio API Chime (SFRS > 85.0)
+if max_sfrs > 85.0:
+    render_html("""
+    <style>
+        @keyframes nasaCriticalBorderPulse {
+            0%, 100% { box-shadow: inset 0 0 0 4px rgba(239, 68, 68, 0.85), inset 0 0 28px rgba(239, 68, 68, 0.35); }
+            50% { box-shadow: inset 0 0 0 8px rgba(239, 68, 68, 0.30), inset 0 0 48px rgba(239, 68, 68, 0.15); }
+        }
+        @keyframes screenBorderEmergencyPulse {
+            0%, 100% { box-shadow: inset 0 0 0 4px rgba(239, 68, 68, 0.85), inset 0 0 28px rgba(239, 68, 68, 0.35); }
+            50% { box-shadow: inset 0 0 0 8px rgba(239, 68, 68, 0.30), inset 0 0 48px rgba(239, 68, 68, 0.15); }
+        }
+        [data-testid="stAppViewContainer"] {
+            border-color: #EF4444;
+            animation: nasaCriticalBorderPulse 1.4s ease-in-out infinite !important;
+        }
+    </style>
+    """)
+    if not st.session_state.get("audio_muted", False):
+        components.html(
+            """
+            <script>
+            (function() {
+                try {
+                    const Ctx = window.AudioContext || window.webkitAudioContext;
+                    if (!Ctx) return;
+                    const ctx = new Ctx();
+                    if (ctx.state === 'suspended') { ctx.resume(); }
+                    const now = ctx.currentTime;
+                    [880, 1046].forEach((freq, idx) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.18);
+                        gain.gain.setValueAtTime(0.08, now + idx * 0.18);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.18 + 0.16);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now + idx * 0.18);
+                        osc.stop(now + idx * 0.18 + 0.17);
+                    });
+                } catch (e) {}
+            })();
+            </script>
+            """,
+            height=0,
+        )
 
 render_html(f"""
 <div class="usa-banner">
@@ -2700,7 +4306,7 @@ render_html(f"""
         <span class="usa-flag-icon" style="display: inline-flex; align-items: center; justify-content: center; font-size: 0.95rem; line-height: 1;">🇺🇸</span>
         <span style="font-weight: 700;">{t['usa_banner_1']}</span>
     </div>
-    <span class="usa-banner-dot" style="color: #6B7280; margin: 0 4px;">•</span>
+    <span class="usa-banner-dot" style="color: #94A3B8; margin: 0 4px;">•</span>
     <span style="color: #9CA3AF;">{t['usa_banner_2']}</span>
 </div>
 """)
@@ -2711,7 +4317,7 @@ active_flag = "🇻🇳 VIỆT NAM" if lang == "vi" else "🇺🇸 ENGLISH"
 render_html(f"""
 <div class="nasa-nav-bar">
     <div class="nasa-logo-container">
-        <img class="nasa-meatball" src="https://upload.wikimedia.org/wikipedia/commons/e/e5/NASA_logo.svg" alt="NASA Logo">
+        {render_mission_patch_svg(44, css_class="nasa-meatball", uid="navbar")}
         <div style="min-width: 0;">
             <div class="nasa-agency-title">{t['nav_agency_title']}</div>
             <div class="nasa-agency-sub">{t['nav_agency_sub']}</div>
@@ -2734,7 +4340,7 @@ render_html(f"""
             <span style="color: #94A3B8; line-height: 1.4;">
                 {datetime.now(timezone.utc).strftime("%H:%M:%S UTC")}
             </span>
-            <span style="color: #4B5563;">|</span>
+            <span style="color: #94A3B8;">|</span>
             <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; color: #FBBF24; font-weight: 700; background: rgba(245, 158, 11, 0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.4); line-height: 1.4; display: inline-block;">
                 {active_flag}
             </span>
@@ -2750,7 +4356,7 @@ render_html(f"""
         {t['hero_pill']}
     </div>
     <h1 class="nasa-hero-title">
-        Flames in Freefall: <span style="background: linear-gradient(135deg, #00F2FF 0%, #38BDF8 50%, #0070F3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 35px rgba(0, 242, 255, 0.45);">{t['hero_title']}</span>
+        Flames in Freefall: <span style="background: linear-gradient(135deg, #38BDF8 0%, #0EA5E9 50%, #0284C7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 25px rgba(56, 189, 248, 0.35);">{t['hero_title']}</span>
     </h1>
     <p class="nasa-hero-desc">
         {t['hero_desc']}
@@ -2763,10 +4369,11 @@ threat_text = t["threat_critical"] if max_sfrs >= 70 else t["threat_high"] if ma
 flam_color = "#E03C31" if flammable_count > 5 else "#38BDF8"
 cf_color = "#A855F7" if cool_flame_alerts_count > 0 else "#94A3B8"
 cf_label = t["cool_flame_active"] if cool_flame_alerts_count > 0 else t["cool_flame_nominal"]
+threat_card_title = t["card_threat_title"].replace("SFRS", render_acronym_tooltip("SFRS", lang, "SFRS"))
 
 kpi_specs = [
-    ("nasa-card", "#00F2FF", t["card_atm_title"], "🛰️", f"{gravity_g:.2f}g <span style='font-size: 1.15rem; color: #38BDF8; font-weight: 700;'>/ {oxygen_pct:.1f}% O₂</span>", "#FFFFFF", f"P: {pressure_kpa:.1f} kPa ({pressure_psi:.1f} psi) • V: {airflow_cm_s:.0f} cm/s", "#94A3B8", False),
-    ("nasa-card critical-alert-card" if max_sfrs >= 70 else "nasa-card", threat_color, t["card_threat_title"], "🔥", f"{max_sfrs:.1f} <span style='font-size: 1.0rem; font-weight: 600; color: #94A3B8;'>/100</span>", threat_color, threat_text, threat_color, True),
+    ("nasa-card", "#38BDF8", t["card_atm_title"], "🛰️", f"{gravity_g:.2f}g <span style='font-size: 1.15rem; color: #38BDF8; font-weight: 700;'>/ {oxygen_pct:.1f}% O₂</span>", "#FFFFFF", f"P: {pressure_kpa:.1f} kPa ({pressure_psi:.1f} psi) • V: {airflow_cm_s:.0f} cm/s", "#94A3B8", False),
+    ("nasa-card critical-alert-card" if max_sfrs >= 70 else "nasa-card", threat_color, threat_card_title, "🔥", f"{max_sfrs:.1f} <span style='font-size: 1.0rem; font-weight: 600; color: #94A3B8;'>/100</span>", threat_color, threat_text, threat_color, True),
     ("nasa-card", flam_color, t["card_ignitable_title"], "⚠️", f"{flammable_count} <span style='font-size: 1.0rem; font-weight: 600; color: #94A3B8;'>/ 10 {t['card_tested_sub']}</span>", flam_color, t["card_critical_high_sub"].format(critical=critical_count, high=high_count), "#94A3B8", False),
     ("nasa-card", cf_color, t["card_cool_flame_title"], "❄️", f"{cool_flame_alerts_count} <span style='font-size: 1.0rem; font-weight: 600; color: #94A3B8;'>{t['cool_flame_materials']}</span>", cf_color, cf_label, cf_color, True),
 ]
@@ -2786,15 +4393,8 @@ for col_obj, (card_cls, accent, title_txt, icon_txt, val_html, val_col, sub_txt,
 
 render_html("<div style='height: 18px;'></div>")
 
-tab_sim, tab_morph, tab_rag, tab_matrix, tab_research = st.tabs([
-    t["tab_sim"],
-    t["tab_morph"],
-    t["tab_rag"],
-    t["tab_matrix"],
-    t["tab_research"]
-])
-
-with tab_sim:
+@st.fragment
+def render_tab_sim(results_df, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, lang, t, cabin_state):
     available_mat_ids = results_df["material_id"].tolist()
     if "global_target_mat_id" not in st.session_state or st.session_state["global_target_mat_id"] not in available_mat_ids:
         st.session_state["global_target_mat_id"] = results_df.iloc[0]["material_id"]
@@ -2805,17 +4405,32 @@ with tab_sim:
             r["material_id"]: f"{r['material_name_vi'] if lang == 'vi' and 'material_name_vi' in r and pd.notna(r['material_name_vi']) else r['material_name']} ({r['material_id']})"
             for _, r in results_df.iterrows()
         }
-        curr_mat_idx = available_mat_ids.index(st.session_state["global_target_mat_id"]) if st.session_state["global_target_mat_id"] in available_mat_ids else 0
-        chosen_mat_id = st.selectbox(
+        display_options = [mat_display_map.get(mid, mid) for mid in available_mat_ids]
+        display_to_id = {mat_display_map.get(mid, mid): mid for mid in available_mat_ids}
+        curr_mat_id = st.session_state.get("global_target_mat_id")
+        curr_mat_idx = (
+            available_mat_ids.index(curr_mat_id)
+            if curr_mat_id in available_mat_ids
+            else 0
+        )
+        if (
+            "cfd_target_specimen_selector" in st.session_state
+            and st.session_state["cfd_target_specimen_selector"] not in display_to_id
+            and display_options
+        ):
+            st.session_state["cfd_target_specimen_selector"] = display_options[curr_mat_idx]
+        chosen_display = st.selectbox(
             label=t.get("target_specimen_label", "🎯 Vật liệu Khảo sát trong Buồng đốt:"),
-            options=available_mat_ids,
+            options=display_options,
             index=curr_mat_idx,
-            format_func=lambda mid: mat_display_map.get(mid, mid),
             key="cfd_target_specimen_selector"
+        )
+        chosen_mat_id = display_to_id.get(
+            chosen_display,
+            available_mat_ids[0] if available_mat_ids else curr_mat_id,
         )
         if chosen_mat_id != st.session_state["global_target_mat_id"]:
             st.session_state["global_target_mat_id"] = chosen_mat_id
-            st.rerun()
 
     curr_target_id = st.session_state.get("global_target_mat_id", results_df.iloc[0]["material_id"])
     target_row = results_df[results_df["material_id"] == curr_target_id].iloc[0] if (results_df["material_id"] == curr_target_id).any() else results_df.iloc[0]
@@ -2832,7 +4447,7 @@ with tab_sim:
         render_html(f"""
             <div style="background: rgba(13, 25, 48, 0.78); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 14px; margin-top: 18px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: #E2E8F0;">
-                    <b>SFRS:</b> <span style="color: {spec_sfrs_color}; font-weight: 800;">{top_sfrs:.1f}</span> | <b>MOC_eff:</b> <span style="color: #38BDF8;">{top_moc:.1f}%</span>
+                    {render_acronym_tooltip('SFRS', lang, '<b>SFRS:</b>')} <span style="color: {spec_sfrs_color}; font-weight: 800;">{top_sfrs:.1f}</span> | {render_acronym_tooltip('MOC', lang, '<b>MOC_eff:</b>')} <span style="color: #38BDF8;">{top_moc:.1f}%</span>
                 </div>
                 <div class="nasa-pill" style="background: {spec_sfrs_color}; color: #000000; font-weight: 800; font-size: 0.68rem;">
                     {spec_status}
@@ -3218,13 +4833,13 @@ with tab_sim:
 
         <div class="tunnel-hud-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 14px;">
             <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px 10px;">
-                <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">{t.get('sim_damkohler_label', 'Số Damköhler (Da)')}</div>
+                <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">{render_acronym_tooltip('Da', lang, t.get('sim_damkohler_label', 'Số Damköhler (Da)'))}</div>
                 <div style="font-size: 1.05rem; font-weight: 800; color: #FFFFFF; font-family: 'JetBrains Mono', monospace; margin: 2px 0;">{da_val:.2f}</div>
                 <div style="font-size: 0.68rem; font-family: 'Plus Jakarta Sans', sans-serif;">{da_badge}</div>
             </div>
 
             <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px 10px;">
-                <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">{t.get('sim_reynolds_label', 'Số Reynolds (Re)')}</div>
+                <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">{render_acronym_tooltip('Re', lang, t.get('sim_reynolds_label', 'Số Reynolds (Re)'))}</div>
                 <div style="font-size: 1.05rem; font-weight: 800; color: #38BDF8; font-family: 'JetBrains Mono', monospace; margin: 2px 0;">{re_val:.0f}</div>
                 <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace;">Laminar Boundary</div>
             </div>
@@ -3232,13 +4847,13 @@ with tab_sim:
             <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px 10px;">
                 <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">{t.get('sim_flame_spread', 'Tốc độ Lan truyền')}</div>
                 <div style="font-size: 1.05rem; font-weight: 800; color: #F59E0B; font-family: 'JetBrains Mono', monospace; margin: 2px 0;">{top_spread:.2f} <span style="font-size: 0.75rem; font-weight: 500;">mm/s</span></div>
-                <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace;">SFRS: {top_sfrs:.1f} / 100</div>
+                <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace;">{render_acronym_tooltip('SFRS', lang, 'SFRS')}: {top_sfrs:.1f} / 100</div>
             </div>
 
             <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px 10px;">
-                <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">{t.get('sim_safety_margin', 'Biên độ Bắt cháy (Δ)')}</div>
+                <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">{render_acronym_tooltip('ΔO2%', lang, t.get('sim_safety_margin', 'Biên độ Bắt cháy (Δ)'))}</div>
                 <div style="font-size: 1.05rem; font-weight: 800; margin: 2px 0; font-family: 'JetBrains Mono', monospace;">{margin_html}</div>
-                <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace;">MOC: {top_moc:.1f}% O₂</div>
+                <div style="font-size: 0.68rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace;">{render_acronym_tooltip('MOC', lang, 'MOC')}: {top_moc:.1f}% O₂</div>
             </div>
         </div>
     </div>
@@ -3284,7 +4899,7 @@ with tab_sim:
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; margin-top: 8px; background: rgba(6, 13, 26, 0.6); padding: 8px; border-radius: 6px;">
                         <div>
-                            <div style="color: #94A3B8; font-size: 0.65rem;">MOC_eff</div>
+                            <div style="color: #94A3B8; font-size: 0.65rem;">{render_acronym_tooltip('MOC', lang, 'MOC_eff')}</div>
                             <b style="color: #38BDF8;">{row['effective_moc']:.1f}%</b>
                         </div>
                         <div>
@@ -3292,7 +4907,7 @@ with tab_sim:
                             <b style="color: #D1D5DB;">{row['flame_spread_rate_mm_s']:.2f} mm/s</b>
                         </div>
                         <div>
-                            <div style="color: #94A3B8; font-size: 0.65rem;">SFRS</div>
+                            <div style="color: #94A3B8; font-size: 0.65rem;">{render_acronym_tooltip('SFRS', lang, 'SFRS')}</div>
                             <b style="color: {row['color']};">{row['sfrs']:.1f} / 100</b>
                         </div>
                     </div>
@@ -3340,9 +4955,9 @@ with tab_sim:
 <tr class="ranking-head-row">
 <th class="col-rank"><span class="th-desktop">{t['th_rank']}</span><span class="th-mobile">#</span></th>
 <th class="col-mat"><span class="th-desktop">{t['th_material']}</span><span class="th-mobile">{'Vật liệu' if lang == 'vi' else 'Material'}</span></th>
-<th class="col-moc"><span class="th-desktop">{t['th_moc']}</span><span class="th-mobile">MOC</span></th>
+<th class="col-moc"><span class="th-desktop">{render_acronym_tooltip('MOC', lang, t['th_moc'])}</span><span class="th-mobile">{render_acronym_tooltip('MOC', lang, 'MOC')}</span></th>
 <th class="col-spread"><span class="th-desktop">{t['th_spread']}</span><span class="th-mobile">{'Lan' if lang == 'vi' else 'Spread'}</span></th>
-<th class="col-sfrs"><span class="th-desktop">{t['th_sfrs']}</span><span class="th-mobile">SFRS</span></th>
+<th class="col-sfrs"><span class="th-desktop">{render_acronym_tooltip('SFRS', lang, t['th_sfrs'])}</span><span class="th-mobile">{render_acronym_tooltip('SFRS', lang, 'SFRS')}</span></th>
 <th class="col-status"><span class="th-desktop">{t['th_status']}</span><span class="th-mobile">{'NASA' if lang == 'vi' else 'Status'}</span></th>
 </tr>
 </thead>
@@ -3398,95 +5013,18 @@ with tab_sim:
         </div>
         """)
 
-        colors = results_df["color"].tolist()
-        mat_names = results_df["material_name"].apply(
-            lambda x: x.split(" (")[0].replace(" / Alkane Fuel", "").replace(" Blend", "")
+        _tab_temp_c = float(cabin_state.get("temp_c", 21.0)) if isinstance(cabin_state, dict) else 21.0
+        _tab_rh_pct = float(cabin_state.get("rh_pct", 45.0)) if isinstance(cabin_state, dict) else 45.0
+        fig_sfrs = generate_sfrs_figure(
+            float(gravity_g),
+            float(oxygen_pct),
+            float(pressure_kpa),
+            float(airflow_cm_s),
+            lang,
+            temp_c=_tab_temp_c,
+            rh_pct=_tab_rh_pct,
         )
-
-        fig_sfrs = make_subplots(specs=[[{"secondary_y": True}]])
-
-        fig_sfrs.add_trace(
-            go.Bar(
-                x=mat_names,
-                y=results_df["sfrs"],
-                marker=dict(
-                    color=colors,
-                    line=dict(color="rgba(255, 255, 255, 0.25)", width=1),
-                    cornerradius=6
-                ),
-                name="SFRS (0-100)",
-                hovertemplate="<b>%{x}</b><br>Risk Score: %{y:.1f}<extra></extra>"
-            ),
-            secondary_y=False
-        )
-
-        fig_sfrs.add_trace(
-            go.Scatter(
-                x=mat_names,
-                y=results_df["effective_moc"],
-                mode="lines+markers",
-                line=dict(color="#38BDF8", width=2.2, shape="spline"),
-                marker=dict(size=7, color="#38BDF8", symbol="circle", line=dict(color="#FFFFFF", width=1.2)),
-                name="Effective MOC (%)",
-                hovertemplate="<b>%{x}</b><br>Effective MOC: %{y:.1f}% O2<extra></extra>"
-            ),
-            secondary_y=True
-        )
-
-        fig_sfrs.add_hline(
-            y=oxygen_pct,
-            line_dash="dash",
-            line_color="#EF4444",
-            line_width=1.8,
-            secondary_y=True,
-            annotation_text=f" Cabin O₂: {oxygen_pct:.1f}% ",
-            annotation_position="top right",
-            annotation_font=dict(color="#FFFFFF", size=10, family="'Plus Jakarta Sans', sans-serif"),
-            annotation_bgcolor="rgba(224, 60, 49, 0.85)",
-            annotation_bordercolor="#EF4444",
-            annotation_borderpad=3
-        )
-
-        fig_sfrs.update_layout(
-            title=None,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(18, 48, 96, 0.22)",
-            font=dict(color="#9CA3AF", family="'Plus Jakarta Sans', sans-serif"),
-            xaxis=dict(
-                showgrid=False,
-                tickangle=-30,
-                tickfont=dict(size=9.5, color="#CBD5E1"),
-                automargin=True
-            ),
-            yaxis=dict(
-                title=dict(text=t["chart_sfrs_yaxis"], font=dict(size=10.5)),
-                range=[0, 108],
-                gridcolor="rgba(125, 211, 252, 0.18)",
-                automargin=True
-            ),
-            yaxis2=dict(
-                title=dict(text="MOC (% O₂)", font=dict(size=10.5)),
-                range=[0, max(50.0, float(results_df["effective_moc"].max()) + 6, float(oxygen_pct) + 8.0)],
-                gridcolor="rgba(31, 41, 61, 0.2)",
-                overlaying="y",
-                side="right",
-                automargin=True
-            ),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="left",
-                x=0.0,
-                font=dict(size=9.5, color="#E2E8F0", family="'Plus Jakarta Sans', sans-serif"),
-                bgcolor="rgba(18, 46, 92, 0.55)",
-                bordercolor="rgba(56, 189, 248, 0.25)",
-                borderwidth=1
-            ),
-            height=375,
-            margin=dict(t=25, b=55, l=50, r=50)
-        )
-        st.plotly_chart(fig_sfrs, width="stretch", config={'displayModeBar': False})
+        st.plotly_chart(fig_sfrs, width="stretch", config={'displayModeBar': False}, theme=None)
 
         mat_short_name = str(top_mat["material_name"]).split(" (")[0]
         paradox_heading = f"Nghịch lý Bốc cháy Luồng gió Thấp ({mat_short_name})" if lang == "vi" else f"Low-Flow Ventilation Paradox ({mat_short_name})"
@@ -3501,100 +5039,18 @@ with tab_sim:
         </div>
         """)
 
-        v_range, spread_0g, spread_1g, spread_current_g = calculate_cached_paradox_sweep(
-            tuple(top_mat.items()), float(oxygen_pct), float(pressure_kpa), float(gravity_g)
+        fig_paradox = generate_paradox_figure(
+            tuple(sorted(top_mat.items())),
+            float(oxygen_pct),
+            float(pressure_kpa),
+            float(gravity_g),
+            float(airflow_cm_s),
+            float(top_spread),
+            lang,
+            temp_c=_tab_temp_c,
+            rh_pct=_tab_rh_pct,
         )
-
-        fig_paradox = go.Figure()
-        fig_paradox.add_trace(go.Scatter(
-            x=v_range,
-            y=spread_0g,
-            mode="lines",
-            name="0g (Cưỡng bức)" if lang == "vi" else "0g (Forced Flow)",
-            line=dict(color="#38BDF8", width=3, shape="spline")
-        ))
-        fig_paradox.add_trace(go.Scatter(
-            x=v_range,
-            y=spread_1g,
-            mode="lines",
-            name="1g (Trái Đất)" if lang == "vi" else "1g (Earth Baseline)",
-            line=dict(color="#F59E0B", width=2, dash="dash", shape="spline")
-        ))
-        
-        if 0.005 <= gravity_g <= 0.995 and spread_current_g:
-            fig_paradox.add_trace(go.Scatter(
-                x=v_range,
-                y=spread_current_g,
-                mode="lines",
-                name=f"{gravity_g:.2f}g",
-                line=dict(color="#E03C31", width=2.5, dash="dot", shape="spline")
-            ))
-        
-        current_top_spread = top_spread
-        fig_paradox.add_trace(go.Scatter(
-            x=[airflow_cm_s],
-            y=[current_top_spread],
-            mode="markers",
-            name=f"Cabin V={airflow_cm_s:.0f} cm/s",
-            marker=dict(size=12, color="#E03C31", symbol="diamond", line=dict(color="#FFFFFF", width=2))
-        ))
-
-        if sofie_df is not None and not sofie_df.empty:
-            sofie_0g = sofie_df[sofie_df['gravity_level'].str.contains('0g', case=False, na=False)]
-            if not sofie_0g.empty:
-                fig_paradox.add_trace(go.Scatter(
-                    x=sofie_0g['airflow_velocity_cm_s'],
-                    y=sofie_0g['flame_spread_rate_mm_s'],
-                    mode="markers",
-                    name="NASA SoFIE CIR (0g Flight Data)" if lang == "en" else "Dữ liệu bay NASA SoFIE (0g CIR)",
-                    marker=dict(size=8, color="#00F2FF", symbol="circle-open-dot", line=dict(color="#00F2FF", width=2)),
-                    hovertemplate="<b>NASA SoFIE CIR Flight Run</b><br>ID: %{text}<br>Gió thổi: %{x} cm/s<br>Tốc độ cháy: %{y} mm/s<extra></extra>",
-                    text=sofie_0g['test_id'] if 'test_id' in sofie_0g.columns else sofie_0g.iloc[:, 0]
-                ))
-            if 0.05 <= gravity_g <= 0.85:
-                g_tag = "0.16g" if gravity_g < 0.25 else "0.38g"
-                sofie_pg = sofie_df[sofie_df['gravity_level'].str.contains(g_tag, case=False, na=False)]
-                if not sofie_pg.empty:
-                    fig_paradox.add_trace(go.Scatter(
-                        x=sofie_pg['airflow_velocity_cm_s'],
-                        y=sofie_pg['flame_spread_rate_mm_s'],
-                        mode="markers",
-                        name=f"NASA SoFIE ({g_tag} Flight Data)",
-                        marker=dict(size=8, color="#F59E0B", symbol="diamond-open", line=dict(color="#F59E0B", width=2)),
-                        hovertemplate=f"<b>NASA SoFIE {g_tag} Run</b><br>ID: %{{text}}<br>Gió thổi: %{{x}} cm/s<br>Tốc độ cháy: %{{y}} mm/s<extra></extra>",
-                        text=sofie_pg['test_id'] if 'test_id' in sofie_pg.columns else sofie_pg.iloc[:, 0]
-                    ))
-
-        fig_paradox.update_layout(
-            title=None,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(18, 48, 96, 0.22)",
-            font=dict(color="#9CA3AF", family="'Plus Jakarta Sans', sans-serif"),
-            xaxis=dict(
-                title=dict(text=t["chart_paradox_xaxis"], font=dict(size=10.5)),
-                gridcolor="rgba(125, 211, 252, 0.18)",
-                automargin=True
-            ),
-            yaxis=dict(
-                title=dict(text=t["chart_paradox_yaxis"], font=dict(size=10.5)),
-                gridcolor="rgba(125, 211, 252, 0.18)",
-                automargin=True
-            ),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="left",
-                x=0.0,
-                font=dict(size=9.5, color="#E2E8F0", family="'Plus Jakarta Sans', sans-serif"),
-                bgcolor="rgba(18, 46, 92, 0.55)",
-                bordercolor="rgba(56, 189, 248, 0.25)",
-                borderwidth=1
-            ),
-            height=375,
-            margin=dict(t=25, b=50, l=50, r=35)
-        )
-        st.plotly_chart(fig_paradox, width="stretch", config={'displayModeBar': False})
+        st.plotly_chart(fig_paradox, width="stretch", config={'displayModeBar': False}, theme=None)
 
     st.markdown("---")
     st.markdown(f"#### {t['tab1_boundary_title']}")
@@ -3622,7 +5078,11 @@ with tab_sim:
         selected_boundary_mat_name = sel_boundary_mat["material_name"]
 
         v_pts, moc_pts = calculate_cached_boundary_sweep(
-            tuple(sel_boundary_mat.to_dict().items()), float(gravity_g), float(pressure_kpa)
+            tuple(sel_boundary_mat.to_dict().items()),
+            float(gravity_g),
+            float(pressure_kpa),
+            temp_c=_tab_temp_c,
+            rh_pct=_tab_rh_pct,
         )
         
         b_name = sel_boundary_mat['material_name_vi'] if lang == 'vi' and 'material_name_vi' in sel_boundary_mat and pd.notna(sel_boundary_mat['material_name_vi']) else sel_boundary_mat['material_name']
@@ -3658,95 +5118,103 @@ with tab_sim:
         </div>
         """)
 
-        fig_boundary = go.Figure()
-
-        fig_boundary.add_trace(go.Scatter(
-            x=v_pts,
-            y=moc_pts,
-            mode="lines",
-            line=dict(color="#E03C31", width=3),
-            name="Extinction Boundary (MOC_eff)",
-            fill="tozeroy",
-            fillcolor="rgba(224, 60, 49, 0.12)"
-        ))
-
-        cur_eff_moc = MicrogravityCombustionPhysics.calculate_effective_moc(
-            sel_boundary_mat, gravity_g, airflow_cm_s, pressure_kpa
+        fig_boundary = generate_boundary_figure(
+            tuple(sorted(sel_boundary_mat.to_dict().items())),
+            float(gravity_g),
+            float(pressure_kpa),
+            float(airflow_cm_s),
+            float(oxygen_pct),
+            lang,
+            temp_c=_tab_temp_c,
+            rh_pct=_tab_rh_pct,
         )
-        is_burning = oxygen_pct >= cur_eff_moc
-        op_color = "#E03C31" if is_burning else "#10B981"
-        op_text = t["boundary_burn"] if is_burning else t["boundary_extinguished"]
+        st.plotly_chart(fig_boundary, width="stretch", config={'displayModeBar': 'hover', 'displaylogo': False}, theme=None)
 
-        fig_boundary.add_trace(go.Scatter(
-            x=[airflow_cm_s],
-            y=[oxygen_pct],
-            mode="markers+text",
-            name=f"Cabin: {op_text}",
-            text=[f"  Cabin ({airflow_cm_s:.0f} cm/s, {oxygen_pct:.1f}% O2) - {op_text}"],
-            textposition="top right",
-            textfont=dict(color=op_color, size=11, family="JetBrains Mono"),
-            marker=dict(size=14, color=op_color, symbol="star", line=dict(color="#FFFFFF", width=1.5))
-        ))
+    # --- MILESTONE M3: NASA-STD-6001B Calibration Matrix ---
+    st.markdown("---")
+    st.markdown(f"#### 📋 {t.get('nasa_6001b_table_title', 'NASA-STD-6001B Calibration Matrix')}")
+    st.caption(t.get("nasa_6001b_table_caption", "Upward propagation (Test 1) & Cone Calorimeter HRR (Test 2) limits."))
+    st.dataframe(
+        pd.DataFrame(physics_models.get_nasa_std_6001b_calibration_table(lang)),
+        width="stretch",
+        hide_index=True,
+    )
 
-        if bass_df is not None and not bass_df.empty:
-            mat_kw = sel_boundary_mat.get("material_name", "").split()[0].lower()
-            bass_sub = bass_df[bass_df['material'].str.lower().str.contains(mat_kw, na=False)]
-            if bass_sub.empty:
-                bass_sub = bass_df.head(6)
-            fig_boundary.add_trace(go.Scatter(
-                x=bass_sub['airflow_velocity_cm_s'],
-                y=bass_sub['limiting_oxygen_index_pct'],
-                mode="markers",
-                name="NASA BASS-II Flight Limits" if lang == "en" else "Giới hạn dập tắt NASA BASS-II (Bay)",
-                marker=dict(size=9, color="#38BDF8", symbol="triangle-up", line=dict(color="#FFFFFF", width=1.5)),
-                hovertemplate="<b>NASA BASS-II Flight Limit</b><br>ID: %{text}<br>Gió thổi: %{x} cm/s<br>LOI/MOC: %{y:.1f}% O2<extra></extra>",
-                text=bass_sub['test_id'] if 'test_id' in bass_sub.columns else bass_sub.iloc[:, 0]
-            ))
-        if saffire_df is not None and not saffire_df.empty:
-            saffire_ext = saffire_df[saffire_df['extinction_mode'] != 'None (Complete Burn)']
-            if not saffire_ext.empty:
-                fig_boundary.add_trace(go.Scatter(
-                    x=saffire_ext['airflow_velocity_cm_s'],
-                    y=saffire_ext['oxygen_pct'],
-                    mode="markers",
-                    name="NASA Saffire Quenched Runs" if lang == "en" else "Điểm dập tắt NASA Saffire (Cygnus)",
-                    marker=dict(size=9, color="#F97316", symbol="square", line=dict(color="#FFFFFF", width=1.5)),
-                    hovertemplate="<b>NASA Saffire Flight Test</b><br>Mission: %{text}<br>Gió: %{x} cm/s<br>O2: %{y:.1f}%<extra></extra>",
-                    text=saffire_ext['test_id'] if 'test_id' in saffire_ext.columns else saffire_ext.iloc[:, 0]
-                ))
+    # --- MILESTONE M5: Custom Composite Material Evaluation Form ---
+    with st.expander(t.get("custom_mat_expander_title", "🧪 Custom Composite Material Evaluation"), expanded=False):
+        with st.form("custom_material_eval_form"):
+            cm_c1, cm_c2, cm_c3, cm_c4 = st.columns(4)
+            with cm_c1:
+                cm_name = st.text_input("Specimen Name", value="CF-PEEK Laminate")
+                cm_rho = st.number_input("Density rho (kg/m3)", min_value=50.0, max_value=8000.0, value=1600.0, step=50.0)
+            with cm_c2:
+                cm_cp = st.number_input("Specific Heat cp (J/kgK)", min_value=200.0, max_value=4500.0, value=1350.0, step=50.0)
+                cm_k = st.number_input("Conductivity k (W/mK)", min_value=0.01, max_value=15.0, value=0.25, step=0.02)
+            with cm_c3:
+                cm_tign = st.number_input("Ignition Temp T_ign (C)", min_value=120.0, max_value=950.0, value=420.0, step=10.0)
+                cm_moc1g = st.number_input("MOC 1g (% O2)", min_value=10.0, max_value=90.0, value=28.0, step=0.5)
+            with cm_c4:
+                cm_mocug = st.number_input("MOC Microgravity (% O2)", min_value=10.0, max_value=90.0, value=24.5, step=0.5)
+                cm_hoc = st.number_input("Heat of Comb. HOC (MJ/kg)", min_value=2.0, max_value=60.0, value=24.0, step=1.0)
+            submitted_custom = st.form_submit_button(t.get("custom_mat_submit_btn", "➕ Evaluate & Append to Matrix"))
 
-        fig_boundary.add_annotation(
-            x=2.0, y=moc_pts[2] + 4,
-            text=t["annotation_quench"],
-            showarrow=True, arrowhead=2, arrowcolor="#38BDF8", font=dict(color="#38BDF8", size=10)
-        )
-        fig_boundary.add_annotation(
-            x=42.0, y=moc_pts[-5] + 3,
-            text=t["annotation_blowoff"],
-            showarrow=True, arrowhead=2, arrowcolor="#F59E0B", font=dict(color="#F59E0B", size=10)
-        )
+        if submitted_custom and cm_name.strip():
+            new_spec = {
+                "name": cm_name.strip(),
+                "density_kg_m3": float(cm_rho),
+                "specific_heat_j_kgk": float(cm_cp),
+                "thermal_conductivity": float(cm_k),
+                "ignition_temp_c": float(cm_tign),
+                "moc_1g": float(cm_moc1g),
+                "moc_ug": float(cm_mocug),
+                "hoc_mj_kg": float(cm_hoc),
+            }
+            existing_list = [m for m in st.session_state.get("custom_materials", []) if m.get("name") != new_spec["name"]]
+            existing_list.append(new_spec)
+            st.session_state["custom_materials"] = existing_list
+            eval_out = physics_models.evaluate_custom_composite(new_spec, cabin_state)
+            st.success(
+                f"{eval_out['name']} — MOC_eff={eval_out['moc_eff']:.2f}% | SFRS={eval_out['sfrs']:.1f} ({eval_out['tier']}) | "
+                f"Test 1: {eval_out['nasa_6001b_test1']['status']} ({eval_out['nasa_6001b_test1']['burn_length_cm']} cm) | "
+                f"Test 2: {eval_out['nasa_6001b_test2']['status']} ({eval_out['nasa_6001b_test2']['hrr_kw_m2']} kW/m2)"
+            )
 
-        fig_boundary.update_layout(
-            title=None,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(18, 48, 96, 0.22)",
-            font=dict(color="#9CA3AF", family="'Plus Jakarta Sans', sans-serif"),
-            xaxis=dict(title=t["boundary_xaxis"], range=[0, 52], gridcolor="rgba(125, 211, 252, 0.18)", automargin=True),
-            yaxis=dict(title=t["boundary_yaxis"], range=[10, max(45.0, float(np.max(moc_pts)) + 6.0, float(oxygen_pct) + 6.0)], gridcolor="rgba(125, 211, 252, 0.18)", automargin=True),
-            height=400,
-            margin=dict(t=25, b=55, l=55, r=40)
-        )
-        fig_boundary.add_annotation(
-            text="© 2026 Bebo ZeroG-X Team (Vu Bao Nam, Do Duy Nam, Luong Duc Tung, Trinh Duc Anh) | NASA Space Apps",
-            xref="paper", yref="paper",
-            x=1.0, y=-0.22,
-            showarrow=False,
-            font=dict(size=8.5, color="rgba(255, 255, 255, 0.4)", family="'JetBrains Mono', monospace"),
-            xanchor="right", yanchor="top"
-        )
-        st.plotly_chart(fig_boundary, width="stretch", config={'displayModeBar': 'hover', 'displaylogo': False})
+    # --- MILESTONE M5: Side-by-Side Scenario Comparison + 5-Axis Polar Radar ---
+    with st.expander(
+        t.get("scenario_comp_expander_title", "⚖️ Side-by-Side Scenario Comparison"),
+        expanded=bool(st.session_state.get("expand_compare_on_load", False)),
+    ):
+        sc_col1, sc_col2, sc_col3 = st.columns(3)
+        preset_opts = list(PRESET_PROFILES.keys())
+        with sc_col1:
+            sc_a_key = st.selectbox("Scenario A", preset_opts, index=0, key="comp_scen_a")
+        with sc_col2:
+            sc_b_key = st.selectbox("Scenario B", preset_opts, index=min(2, len(preset_opts) - 1), key="comp_scen_b")
+        with sc_col3:
+            mat_names = results_df["material_name"].tolist()
+            comp_mat_name = st.selectbox("Comparison Specimen", mat_names, index=0, key="comp_mat_sel")
 
-with tab_morph:
+        comp_row = results_df[results_df["material_name"] == comp_mat_name].iloc[0]["raw_mat"]
+        p_a = PRESET_PROFILES[sc_a_key]
+        p_b = PRESET_PROFILES[sc_b_key]
+        env_a = {"gravity_g": p_a["gravity_val"], "oxygen_pct": p_a["o2_val"], "pressure_kpa": p_a["p_val"], "airflow_cm_s": p_a["v_val"], "temp_c": p_a["temp_val"], "rh_pct": p_a["rh_val"]}
+        env_b = {"gravity_g": p_b["gravity_val"], "oxygen_pct": p_b["o2_val"], "pressure_kpa": p_b["p_val"], "airflow_cm_s": p_b["v_val"], "temp_c": p_b["temp_val"], "rh_pct": p_b["rh_val"]}
+        diff_res = physics_models.calculate_scenario_diff(env_a, env_b, comp_row)
+
+        dm1, dm2, dm3 = st.columns(3)
+        dm1.metric("Delta MOC_eff", f"{diff_res['scenario_b']['moc_eff']:.2f}%", delta=f"{diff_res['delta_moc_eff']:+.2f}%")
+        dm2.metric("Delta Spread Rate", f"{diff_res['scenario_b']['spread_rate_cm_s']:.3f} cm/s", delta=f"{diff_res['delta_spread_rate']:+.3f} cm/s")
+        dm3.metric("Delta SFRS", f"{diff_res['scenario_b']['sfrs']:.1f}", delta=f"{diff_res['delta_sfrs']:+.1f}", delta_color="inverse")
+
+        axes_labels = list(diff_res["radar_a"].keys())
+        fig_radar = go.Figure()
+        fig_radar.add_trace(go.Scatterpolar(r=list(diff_res["radar_a"].values()) + [list(diff_res["radar_a"].values())[0]], theta=axes_labels + [axes_labels[0]], fill="toself", name=sc_a_key, line_color="#38BDF8"))
+        fig_radar.add_trace(go.Scatterpolar(r=list(diff_res["radar_b"].values()) + [list(diff_res["radar_b"].values())[0]], theta=axes_labels + [axes_labels[0]], fill="toself", name=sc_b_key, line_color="#F97316"))
+        fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), height=330, margin=dict(t=25, b=25, l=40, r=40), paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#E2E8F0"))
+        st.plotly_chart(fig_radar, width="stretch", theme=None)
+
+@st.fragment
+def render_tab_morph(results_df, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, lang, t):
     st.markdown(f"### {t['tab2_title']}")
     st.caption(t['tab2_caption'])
 
@@ -3767,16 +5235,18 @@ with tab_morph:
     )
 
     banner_bg = "rgba(224, 60, 49, 0.16)" if morph_metrics["regime_code"] == "EXPANDING_HEMISPHERE" else "rgba(0, 242, 255, 0.14)" if morph_metrics["regime_code"] == "SPHERICAL_DIFFUSION" else "rgba(245, 158, 11, 0.16)"
+    pill_text_color = "#FFFFFF" if morph_metrics["color_theme"] in ("#64748B", "#E03C31") else "#000000"
+    regime_text_color = "#94A3B8" if morph_metrics["color_theme"] == "#64748B" else morph_metrics["color_theme"]
     render_html(f"""
         <div style="background: {banner_bg}; border: 1.5px solid {morph_metrics['color_theme']}; border-left: 6px solid {morph_metrics['color_theme']}; border-radius: 14px; padding: 18px 24px; margin-bottom: 20px; box-shadow: 0 10px 28px rgba(2, 6, 23, 0.5), inset 0 0 18px rgba(0, 242, 255, 0.08); backdrop-filter: blur(18px);">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div>
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                        <span class="nasa-pill" style="background: {morph_metrics['color_theme']}; color: #000000; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.04em; font-family: 'Plus Jakarta Sans', sans-serif;">
+                        <span class="nasa-pill" style="background: {morph_metrics['color_theme']}; color: {pill_text_color}; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.04em; font-family: 'Plus Jakarta Sans', sans-serif;">
                             {t['active_regime_badge']}
                         </span>
                         <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; color: #94A3B8; font-weight: 600;">
-                            REGIME CODE: <span style="color: {morph_metrics['color_theme']}; font-weight: 800;">{morph_metrics['regime_code']}</span>
+                            REGIME CODE: <span style="color: {regime_text_color}; font-weight: 800;">{morph_metrics['regime_code']}</span>
                         </span>
                     </div>
                     <h3 style="color: #FFFFFF; margin: 4px 0; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.30rem; font-weight: 800; letter-spacing: -0.01em;">
@@ -3822,7 +5292,7 @@ with tab_morph:
                     <div style="height: 6px; width: 100%; border-radius: 99px; background: linear-gradient(90deg, #1E3A8A 0%, #0284C7 20%, #00F2FF 45%, #F59E0B 75%, #EF4444 100%); position: relative; border: 1px solid rgba(255,255,255,0.12);">
                         <div style="position: absolute; left: {pct_temp}%; top: -3px; width: 4px; height: 12px; background: #FFFFFF; border-radius: 2px; box-shadow: 0 0 8px #00F2FF; transform: translateX(-50%);"></div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.65rem; font-weight: 600; color: #64748B; margin-top: 3px;">
+                    <div style="display: flex; justify-content: space-between; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.65rem; font-weight: 600; color: #94A3B8; margin-top: 3px;">
                         <span>300K</span><span>1380K</span><span>2400K</span>
                     </div>
                 </div>
@@ -3837,7 +5307,7 @@ with tab_morph:
         if is_top_extinguished or morph_metrics['aspect_ratio'] == 0:
             mini_shape_svg = '<svg width="38" height="24" viewBox="0 0 38 24"><circle cx="19" cy="12" r="8" fill="none" stroke="#64748B" stroke-width="1.5" stroke-dasharray="2,2"/><line x1="12" y1="18" x2="26" y2="6" stroke="#EF4444" stroke-width="1.5"/></svg>'
             ar_sub = "Tắt hoàn toàn" if lang == "vi" else "Extinguished"
-            ar_color = "#64748B"
+            ar_color = "#94A3B8"
         elif morph_metrics['aspect_ratio'] >= 2.0:
             mini_shape_svg = '<svg width="38" height="24" viewBox="0 0 38 24"><path d="M 19 22 C 24 19 22 7 19 2 C 16 7 14 19 19 22 Z" fill="url(#miniTeardrop)" filter="drop-shadow(0 0 4px #F59E0B)"/><defs><radialGradient id="miniTeardrop" cx="50%" cy="80%" r="80%"><stop offset="0%" stop-color="#FEF08A"/><stop offset="50%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#E03C31"/></radialGradient></defs></svg>'
             ar_sub = "Giọt nước đối lưu (1.0g)" if lang == "vi" else "Teardrop Plume (1.0g)"
@@ -3893,16 +5363,16 @@ with tab_morph:
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-family: 'Plus Jakarta Sans', sans-serif; margin: 4px 0;">
                     <div style="background: rgba(15,23,42,0.65); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.76rem; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #94A3B8; font-weight: 600;">Da:</span> <b style="color: #38BDF8; font-weight: 800;">{morph_metrics['damkohler']:.1f}</b>
+                        <span>{render_acronym_tooltip('Da', lang, 'Da:')}</span> <b style="color: #38BDF8; font-weight: 800;">{morph_metrics['damkohler']:.1f}</b>
                     </div>
                     <div style="background: rgba(15,23,42,0.65); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.76rem; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #94A3B8; font-weight: 600;">Re:</span> <b style="color: #00F2FF; font-weight: 800;">{morph_metrics['reynolds']:.1f}</b>
+                        <span>{render_acronym_tooltip('Re', lang, 'Re:')}</span> <b style="color: #38BDF8; font-weight: 800;">{morph_metrics['reynolds']:.1f}</b>
                     </div>
                     <div style="background: rgba(15,23,42,0.65); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.76rem; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #94A3B8; font-weight: 600;">Pe:</span> <b style="color: #10B981; font-weight: 800;">{morph_metrics['peclet']:.1f}</b>
+                        <span>{render_acronym_tooltip('Pe', lang, 'Pe:')}</span> <b style="color: #10B981; font-weight: 800;">{morph_metrics['peclet']:.1f}</b>
                     </div>
                     <div style="background: rgba(15,23,42,0.65); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.76rem; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #94A3B8; font-weight: 600;">Ri:</span> <b style="color: #F59E0B; font-weight: 800;">{ri_val:.2f}</b>
+                        <span>{render_acronym_tooltip('Ri', lang, 'Ri:')}</span> <b style="color: #F59E0B; font-weight: 800;">{ri_val:.2f}</b>
                     </div>
                 </div>
                 <div style="margin-top: 6px;">
@@ -3988,7 +5458,7 @@ with tab_morph:
                 <div>
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
                         {flame_status_beacon}
-                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.65rem; font-weight: 700; color: #64748B;">Z-AXIS 1:1 CALIBRATED</span>
+                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.65rem; font-weight: 700; color: #94A3B8;">Z-AXIS 1:1 CALIBRATED</span>
                     </div>
                     <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.98rem; font-weight: 800; color: #FFFFFF; line-height: 1.25;">
                         🔬 {'Buồng Cắt Lớp Hình Thái Học' if lang == 'vi' else 'Cross-Section Hologram Bay'}
@@ -4042,7 +5512,7 @@ with tab_morph:
                 <line x1="-15" y1="-15" x2="15" y2="15" stroke="#EF4444" stroke-width="2"/>
                 <rect x="-115" y="-50" width="230" height="20" rx="4" fill="rgba(11,23,44,0.9)" stroke="rgba(239,68,68,0.5)" stroke-width="0.8"/>
                 <text x="0" y="-36" text-anchor="middle" fill="#EF4444" font-size="9" font-weight="800" font-family="'JetBrains Mono', monospace">{'🛡️ ĐÃ DẬP TẮT HOÀN TOÀN (T ~ 300 K)' if lang == 'vi' else '🛡️ FULLY EXTINGUISHED (T ~ 300 K)'}</text>
-                <text x="0" y="2" text-anchor="middle" fill="#64748B" font-size="8.5" font-family="'JetBrains Mono', monospace">{'Không có phản ứng oxy hóa hoạt động' if lang == 'vi' else 'Zero Active Chemical Oxidation'}</text>
+                <text x="0" y="2" text-anchor="middle" fill="#94A3B8" font-size="8.5" font-family="'JetBrains Mono', monospace">{'Không có phản ứng oxy hóa hoạt động' if lang == 'vi' else 'Zero Active Chemical Oxidation'}</text>
                 '''
                 flame_label = "Extinguished / Cold Ambient Gas" if lang == "en" else "Đã dập tắt an toàn / Khí trôi nguội"
             elif g_val >= 0.80:
@@ -4278,7 +5748,8 @@ with tab_morph:
             </div>
             """)
 
-    with col_flame_contour:
+    @st.fragment
+    def render_flame_visualizer_fragment(gravity_g, airflow_cm_s, morph_metrics, is_top_extinguished, lang, t):
         with st.container(key="flame_chamber_right"):
             render_html(f"""
             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(56, 189, 248, 0.2);">
@@ -4288,7 +5759,7 @@ with tab_morph:
                             <span style="width: 5px; height: 5px; border-radius: 50%; background: #38BDF8; box-shadow: 0 0 5px #38BDF8;"></span>
                             THERMAL & 3D RIG
                         </span>
-                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.65rem; font-weight: 700; color: #64748B;">KELVIN FIELD</span>
+                        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.65rem; font-weight: 700; color: #94A3B8;">KELVIN FIELD</span>
                     </div>
                     <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.98rem; font-weight: 800; color: #FFFFFF; line-height: 1.25;">
                         🌡️ {'Bản đồ Đẳng nhiệt & Mô hình 3D' if lang == 'vi' else 'Isothermal Map & 3D Model'}
@@ -4306,68 +5777,33 @@ with tab_morph:
 
             view_mode = st.radio(
                 label="Visualization Mode",
-                options=["2D", "3D"],
-                format_func=lambda x: ("📊 2D Đẳng nhiệt (Contour)" if lang == "vi" else "📊 2D Contour") if x == "2D" else ("🌐 Mô hình Không gian 3D" if lang == "vi" else "🌐 3D Spatial Model"),
+                options=["2D", "3D", "WebGL"],
+                format_func=lambda x: (
+                    ("📊 2D Đẳng nhiệt (Contour)" if lang == "vi" else "📊 2D Contour")
+                    if x == "2D"
+                    else (t.get("webgl_3d_mode_label", "🌐 Interactive 3D WebGL (Three.js)") if x == "WebGL" else ("🌐 Mô hình Không gian 3D" if lang == "vi" else "🌐 3D Spatial Model"))
+                ),
                 key="flame_view_mode_toggle",
                 horizontal=True,
                 label_visibility="collapsed"
             )
 
             if view_mode == "2D":
-                grid_n = 60
-                x_pts, y_pts, T, c_scale = calculate_temperature_mesh(
-                    float(gravity_g), float(airflow_cm_s), float(morph_metrics["peak_temp_k"]), is_extinguished=is_top_extinguished
+                fig_contour = generate_2d_contour_figure(
+                    float(gravity_g), float(airflow_cm_s), float(morph_metrics["peak_temp_k"]),
+                    is_extinguished=is_top_extinguished, lang=lang
                 )
+                st.plotly_chart(fig_contour, width="stretch", config={'displayModeBar': 'hover', 'displaylogo': False}, theme=None)
 
-                fig_contour = go.Figure(data=go.Contour(
-                    z=T,
-                    x=x_pts,
-                    y=y_pts,
-                    colorscale=c_scale,
-                    contours=dict(
-                        coloring='heatmap',
-                        showlabels=True,
-                        labelfont=dict(size=9, color='white', family='JetBrains Mono')
-                    ),
-                    colorbar=dict(
-                        title=dict(text=t["contour_temp_bar"], font=dict(color="#9CA3AF", size=10)),
-                        tickfont=dict(color="#9CA3AF", size=8.5, family="JetBrains Mono"),
-                        thickness=14,
-                        len=0.92
-                    ),
-                    hovertemplate="X: %{x:.1f} cm<br>Y: %{y:.1f} cm<br><b>Temp: %{z:.0f} K</b><extra></extra>"
-                ))
-
-                fig_contour.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(10, 24, 52, 0.45)",
-                    font=dict(color="#9CA3AF", family="'Plus Jakarta Sans', sans-serif"),
-                    xaxis=dict(
-                        title=dict(text=t["contour_radial_x"], font=dict(size=10, color="#94A3B8", family="'JetBrains Mono', monospace")),
-                        gridcolor="rgba(125, 211, 252, 0.15)",
-                        zerolinecolor="#334155",
-                        automargin=True,
-                        tickfont=dict(family="'JetBrains Mono', monospace", size=8.5, color="#94A3B8")
-                    ),
-                    yaxis=dict(
-                        title=dict(text=t["contour_axial_y"], font=dict(size=10, color="#94A3B8", family="'JetBrains Mono', monospace")),
-                        gridcolor="rgba(125, 211, 252, 0.15)",
-                        zerolinecolor="#334155",
-                        automargin=True,
-                        tickfont=dict(family="'JetBrains Mono', monospace", size=8.5, color="#94A3B8")
-                    ),
-                    height=440,
-                    margin=dict(t=20, b=40, l=55, r=40)
+            elif view_mode == "WebGL":
+                webgl_html = threejs_flame.generate_threejs_flame_html(
+                    gravity_g=float(gravity_g),
+                    airflow_cm_s=float(airflow_cm_s),
+                    oxygen_pct=float(st.session_state.get("o2_val", 21.0)),
+                    pressure_kpa=float(st.session_state.get("p_val", 101.3)),
+                    is_extinguished=bool(is_top_extinguished),
                 )
-                fig_contour.add_annotation(
-                    text="© 2026 Bebo ZeroG-X • NASA PSI",
-                    xref="paper", yref="paper",
-                    x=1.0, y=-0.18,
-                    showarrow=False,
-                    font=dict(size=8, color="rgba(255, 255, 255, 0.35)", family="'JetBrains Mono', monospace"),
-                    xanchor="right", yanchor="top"
-                )
-                st.plotly_chart(fig_contour, width="stretch", config={'displayModeBar': 'hover', 'displaylogo': False})
+                components.html(webgl_html, height=455)
 
             else:
                 cam_col1, cam_col2 = st.columns([1.1, 2.0])
@@ -4403,7 +5839,7 @@ with tab_morph:
                 st.plotly_chart(fig_3d, width="stretch", config={
                     'displayModeBar': True,
                     'displaylogo': False
-                })
+                }, theme=None)
 
             # Bottom Telemetry Footer Strip
             render_html(f"""
@@ -4434,6 +5870,9 @@ with tab_morph:
                 </div>
             </div>
             """)
+
+    with col_flame_contour:
+        render_flame_visualizer_fragment(gravity_g, airflow_cm_s, morph_metrics, is_top_extinguished, lang, t)
 
     # --- HÀNG 3: BẢNG SO SÁNH 3 MÔI TRƯỜNG DẠNG BENTO GRID HU ĐỘNG HỌC ---
     st.markdown("---")
@@ -4624,7 +6063,29 @@ with tab_morph:
                 </div>
             """)
 
-with tab_rag:
+    # --- MILESTONE M3: Dynamic Cool Flame NTC 2-Step ODE Time-Series ---
+    st.markdown("---")
+    st.markdown(f"#### 🟣 {t.get('ntc_kinetics_title', '2-Step Cool Flame NTC Oscillatory Kinetics ODE')}")
+    st.caption(t.get("ntc_kinetics_caption", "Coupled T(t) cooling & [CO](t) intermediate evolution in NTC window."))
+    ntc_sol = physics_models.solve_cool_flame_ntc_kinetics(T0=1450.0, o2=float(oxygen_pct), P=float(pressure_kpa), t_max=40.0, steps=400)
+    fig_ntc = make_subplots(specs=[[{"secondary_y": True}]])
+    fig_ntc.add_trace(
+        go.Scatter(x=ntc_sol["time_s"], y=ntc_sol["temperature_k"], name="Gas Temp T(t) [K]", line=dict(color="#38BDF8", width=2.5)),
+        secondary_y=False,
+    )
+    fig_ntc.add_trace(
+        go.Scatter(x=ntc_sol["time_s"], y=ntc_sol["co_ppm"], name="[CO](t) Radical/Toxic [ppm]", line=dict(color="#F59E0B", width=2.2, dash="dot")),
+        secondary_y=True,
+    )
+    fig_ntc.update_layout(height=340, margin=dict(t=25, b=30, l=45, r=45), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(15,23,42,0.5)", font=dict(color="#E2E8F0"), legend=dict(orientation="h", y=1.12))
+    fig_ntc.update_xaxes(title_text="Time t (s)")
+    fig_ntc.update_yaxes(title_text="Temperature T (K)", secondary_y=False)
+    fig_ntc.update_yaxes(title_text="[CO] Concentration (ppm)", secondary_y=True)
+    st.plotly_chart(fig_ntc, width="stretch", theme=None)
+    st.caption(f"Regime: **{ntc_sol['regime']}** | Peak [CO]: **{ntc_sol['peak_co_ppm']} ppm** | Final Temp: **{ntc_sol['final_temp_k']} K**")
+
+@st.fragment
+def render_tab_rag(lang, t, vector_db, materials_df, cabin_state, results_df, ai_mode, llm_provider, api_key_input):
     st.markdown(f"### {t['tab3_title']}")
     st.caption(t['tab3_caption'])
 
@@ -4691,6 +6152,30 @@ with tab_rag:
                 st.session_state["rag_input"] = q_data["text"]
                 st.rerun()
 
+    col_rag_up, col_rag_clr = st.columns([3.2, 1.0])
+    with col_rag_up:
+        uploaded_paper = st.file_uploader(
+            t.get("rag_upload_label", "📄 Upload Research Paper (PDF / TXT / MD) to Offline Vector Index"),
+            type=["pdf", "txt", "md"],
+            key="rag_paper_uploader",
+        )
+        if uploaded_paper is not None:
+            _file_sig = f"{uploaded_paper.name}:{uploaded_paper.size}"
+            if st.session_state.get("last_ingested_rag_file") != _file_sig:
+                _ingested = rag_engine.ingest_user_document(uploaded_paper.getvalue(), uploaded_paper.name)
+                st.session_state["last_ingested_rag_file"] = _file_sig
+                if _ingested > 0:
+                    st.success(f"Indexed {_ingested} chunk(s) from: {uploaded_paper.name}")
+                else:
+                    st.warning(f"No readable text chunks found in: {uploaded_paper.name}")
+    with col_rag_clr:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        if st.button(t.get("rag_clear_chat_btn", "🗑️ Reset RAG History"), key="btn_rag_clear_history", width="stretch"):
+            st.session_state["rag_chat_history"] = []
+            rag_engine.reset_custom_documents()
+            st.session_state["last_ingested_rag_file"] = None
+            st.rerun()
+
     user_query = st.text_input(
         t["search_input_label"],
         key="rag_input",
@@ -4700,24 +6185,87 @@ with tab_rag:
     if user_query:
         spinner_msg = "Đang thực hiện Semantic Vector Search trên kho tài liệu NASA PSI..." if lang == "vi" else "Executing Semantic Vector Search over NASA PSI corpus..."
         with st.spinner(spinner_msg):
-            matched_results = vector_db.search(user_query, top_k=3)
-            
+            effective_rag_query = rag_engine.reformulate_query_with_history(
+                user_query, st.session_state.get("rag_chat_history", [])
+            )
+            semantic_hits = rag_engine.search_semantic(effective_rag_query, top_k=6, threshold=0.05)
+            matched_results = vector_db.search(effective_rag_query, top_k=3)
+
+            corpus_keys = {
+                (str(c.get("report_id", "")), str(c.get("title", "")))
+                for c in getattr(rag_engine, "NASA_PSI_CORPUS", [])
+            }
+
+            def _is_uploaded_doc(doc_dict):
+                if bool(doc_dict.get("is_user_upload")):
+                    return True
+                doc_key = (str(doc_dict.get("report_id", "")), str(doc_dict.get("title", "")))
+                if corpus_keys and doc_key not in corpus_keys:
+                    return True
+                rep = str(doc_dict.get("report_id", doc_dict.get("doc_id", ""))).upper()
+                sec = str(doc_dict.get("section", "")).lower()
+                return "UPLOAD" in rep or "USER" in rep or "upload" in sec
+
+            def _unpack_hit(hit_item):
+                if isinstance(hit_item, dict):
+                    raw_doc = hit_item.get("doc", hit_item)
+                    if isinstance(raw_doc, dict):
+                        return float(hit_item.get("score", 0.0)), raw_doc
+                elif isinstance(hit_item, (tuple, list)) and len(hit_item) >= 2 and isinstance(hit_item[1], dict):
+                    return float(hit_item[0]), hit_item[1]
+                return None
+
+            unpacked_semantic = [u for u in (_unpack_hit(it) for it in (semantic_hits or [])) if u is not None]
+            unpacked_vector = [u for u in (_unpack_hit(it) for it in (matched_results or [])) if u is not None]
+
+            merged_hits = []
+            seen_keys = set()
+            for s_score, s_doc in unpacked_semantic:
+                if _is_uploaded_doc(s_doc):
+                    k = (str(s_doc.get("report_id", s_doc.get("doc_id", ""))), str(s_doc.get("title", "")))
+                    if k not in seen_keys:
+                        seen_keys.add(k)
+                        merged_hits.append((s_score, s_doc))
+            for s_score, s_doc in unpacked_semantic:
+                k = (str(s_doc.get("report_id", s_doc.get("doc_id", ""))), str(s_doc.get("title", "")))
+                if k not in seen_keys:
+                    seen_keys.add(k)
+                    merged_hits.append((s_score, s_doc))
+            for m_score, m_doc in unpacked_vector:
+                k = (str(m_doc.get("report_id", m_doc.get("doc_id", ""))), str(m_doc.get("title", "")))
+                if k not in seen_keys:
+                    seen_keys.add(k)
+                    merged_hits.append((m_score, m_doc))
+            matched_results = merged_hits[:3]
+
             online_rag_answer = None
             if ("Online" in ai_mode or "Trực tuyến" in ai_mode) and api_key_input.strip() and matched_results:
                 evidence_snippets = "\n\n".join([
-                    f"[{d['report_id']} - Section {d['section'].split(':')[0]} - Page {d['page']}]:\n{d['text']}"
+                    f"[{d.get('report_id', d.get('doc_id', 'UPLOAD'))} - Section {str(d.get('section', 'Uploaded Document')).split(':')[0]} - Page {d.get('page', 1)}]:\n{d.get('text', '')}"
                     for _, d in matched_results
                 ])
                 online_rag_answer = query_online_llm_rag(
-                    user_query, evidence_snippets, llm_provider, api_key_input.strip(), lang=lang
+                    effective_rag_query, evidence_snippets, llm_provider, api_key_input.strip(), lang=lang
                 )
 
-            if online_rag_answer:
+            online_ok = bool(online_rag_answer) and not str(online_rag_answer).lstrip().startswith("⚠️")
+            if online_rag_answer and not online_ok:
+                st.warning(str(online_rag_answer))
+                online_rag_answer = None
+
+            if online_ok:
                 ai_synthesized_answer = online_rag_answer
                 badge_rag = f"ONLINE: {llm_provider} (GROUNDED IN RETRIEVED PSI DOCS)"
             else:
-                ai_synthesized_answer = vector_db.synthesize_answer(user_query, matched_results, lang=lang)
-                badge_rag = "OFFLINE DETERMINISTIC EXPERT COPILOT"
+                _directive_res = rag_engine.generate_grounded_directive(
+                    effective_rag_query, matched_results, st.session_state.get("rag_chat_history", [])
+                )
+                ai_synthesized_answer = (
+                    _directive_res["directive"]
+                    if isinstance(_directive_res, dict)
+                    else str(_directive_res)
+                )
+                badge_rag = "OFFLINE DENSE SVD SEMANTIC COPILOT"
 
         col_rag_ans, col_rag_docs = st.columns([1.15, 1.25], gap="large")
 
@@ -4725,170 +6273,60 @@ with tab_rag:
             st.markdown(f"#### {t['ai_answer_title']}")
 
             top_doc = matched_results[0][1] if matched_results else None
-            q_norm = normalize_vn_text(user_query)
-            q_low = user_query.lower()
 
             # Phân tách câu trả lời theo chuẩn NASA Directive với 3 khối phân tách rõ rệt
             def _fmt_online_block(text):
-                t_fmt = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
-                t_fmt = re.sub(r'^###?\s+(.+)$', r'<b>\1</b>', t_fmt, flags=re.MULTILINE)
+                safe_txt = html.escape(str(text), quote=True)
+                t_fmt = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', safe_txt)
+                t_fmt = re.sub(r'^#{1,4}\s+(.+)$', r'<b>\1</b>', t_fmt, flags=re.MULTILINE)
                 return t_fmt.replace('\n', '<br>')
 
-            if online_rag_answer:
-                clean_ans = str(online_rag_answer).strip()
-                parts = [p.strip() for p in clean_ans.split("\n\n") if p.strip()]
-                if len(parts) >= 3:
-                    b_kin = _fmt_online_block(parts[0])
-                    b_std = _fmt_online_block(parts[1])
-                    b_emg = _fmt_online_block("\n\n".join(parts[2:]))
-                elif len(parts) == 2:
-                    b_kin = _fmt_online_block(parts[0])
-                    b_std = _fmt_online_block(parts[1])
-                    b_emg = ("1. <b>CÔ LẬP KHẨN CẤP (T+0s):</b> Đóng van HVAC phân khu.<br>2. <b>DƯỠNG KHÍ PBE (T+15s):</b> Phi hành đoàn đeo mặt nạ PBE.<br>3. <b>DẬP LỬA:</b> Sương nước siêu mịn hoặc khí trơ." if lang == "vi" else "1. <b>HVAC ISOLATION (T+0s):</b> Cut ventilation.<br>2. <b>PBE DONNING (T+15s):</b> Crew don PBE.<br>3. <b>SUPPRESSION:</b> Fine water mist or inert purge.")
-                else:
-                    b_kin = _fmt_online_block(clean_ans)
-                    b_std = ("Tuân thủ nghiêm ngặt tiêu chuẩn kiểm tra độ bắt cháy vật liệu theo <b>NASA-STD-6001B</b>." if lang == "vi" else "Strict adherence to <b>NASA-STD-6001B</b> flammability certification.")
-                    b_emg = ("1. <b>CÔ LẬP KHẨN CẤP (T+0s):</b> Đóng van HVAC phân khu.<br>2. <b>DƯỠNG KHÍ PBE (T+15s):</b> Phi hành đoàn đeo mặt nạ PBE.<br>3. <b>DẬP LỬA:</b> Sương nước siêu mịn hoặc khí trơ." if lang == "vi" else "1. <b>HVAC ISOLATION (T+0s):</b> Cut ventilation.<br>2. <b>PBE DONNING (T+15s):</b> Crew don PBE.<br>3. <b>SUPPRESSION:</b> Fine water mist or inert purge.")
-            elif any(k in q_norm for k in ["nuoc", "suong nuoc", "tia nuoc", "chua chay", "dap lua", "dap hoa hoan", "binh chua chay", "water", "extinguish", "suppress"]):
-                if lang == "vi":
-                    b_kin = (
-                        "Trong vi trọng lực, tia nước áp lực cao đơn lẻ ($F = \\dot{m}v$) tạo lực xung kích thủy động cực lớn làm vỡ vụn "
-                        "các mảng polyme nóng chảy đang cháy. Lực này bắn tung hàng nghìn giọt nhựa cháy và tàn lửa lơ lửng khắp thể tích cabin 3D, "
-                        "biến đám cháy cục bộ thành thảm họa phân tán và gây chập mạch thảm khốc hệ thống điện tử hàng không (Avionics)."
-                    )
-                    b_std = (
-                        "Theo Công bố Kỹ thuật NASA <b>NASA/SP-2024-50021</b> và tiêu chuẩn <b>NASA-STD-6001B</b>, nghiêm cấm tuyệt đối bình cứu hỏa phun tia nước thẳng "
-                        "trên toàn bộ phương tiện bay có người lái. Bắt buộc trang bị <b>Bình Chữa Cháy Sương Nước Siêu Mịn (Fine Water Mist, kích thước giọt &lt; 50 µm)</b> "
-                        "đẩy bằng khí trơ N₂, hoặc hệ thống xả tràn khí CO₂/N₂ toàn phần (Total Flooding) cho các khoang kín."
-                    )
-                    b_emg = (
-                        "1. <b>BẢO VỆ PHI HÀNH ĐOÀN (T+0s):</b> Lập tức đeo Thiết bị Dưỡng khí Khẩn cấp (PBE/SCBA) trong vòng 15 giây để chống khói độc.<br>"
-                        "2. <b>CÔ LẬP KHẨN CẤP (T+30s):</b> Đóng kín vách ngăn khoang (Hatch Seal) và cắt quạt thông gió HVAC phân khu để triệt tiêu dòng cấp khí.<br>"
-                        "3. <b>TRIỂN KHAI PHUN SƯƠNG (T+60s):</b> Kích hoạt bình sương nước siêu mịn ở cự ly 1.0 - 1.5m với góc xòe rộng, sau đó kích hoạt chế độ lọc bồ hóng ECLSS Scrubber."
-                    )
-                else:
-                    b_kin = (
-                        "In zero gravity, single high-velocity water jets generate massive hydrodynamic impact forces ($F = \\dot{m}v$) that shatter "
-                        "burning molten polymer matrices, scattering flaming droplets and incandescent embers throughout the 3D cabin volume while inducing "
-                        "catastrophic avionics short-circuits."
-                    )
-                    b_std = (
-                        "Per NASA Technical Publication <b>NASA/SP-2024-50021</b> and <b>NASA-STD-6001B</b>, single water jets are strictly prohibited on all "
-                        "crewed spacecraft. Flight certification mandates <b>Fine Water Mist (&lt; 50 µm droplets)</b> propelled by gaseous N₂, or total flooding "
-                        "with gaseous CO₂/N₂ for sealed equipment racks."
-                    )
-                    b_emg = (
-                        "1. <b>CREW PROTECTION (T+0s):</b> Immediately don Emergency Personal Breathing Equipment (PBE/SCBA) within 15 seconds.<br>"
-                        "2. <b>CABIN ISOLATION (T+30s):</b> Seal inter-module hatches and shut down localized HVAC fans to eliminate forced draft.<br>"
-                        "3. <b>MIST DISCHARGE (T+60s):</b> Deploy fine water mist extinguisher at 1.0-1.5m stand-off with wide cone dispersion, then activate ECLSS smoke scrubber."
-                    )
-            elif any(k in q_norm for k in ["lanh", "ngon lua lanh", "lua lanh", "cool flame", "cool flames", "flex", "giot", "droplet"]):
-                if lang == "vi":
-                    b_kin = (
-                        "Hiện tượng 'Ngọn Lửa Lạnh' (Cool Flames) được phát hiện trong thí nghiệm lịch sử NASA FLEX trên trạm ISS. Khi tổn thất nhiệt bức xạ "
-                        "dập tắt ngọn lửa nóng nhìn thấy (~1800 K), phản ứng đốt cháy oxy hóa giai đoạn hai vẫn tiếp diễn âm ỉ ở nhiệt độ thấp 600 - 800 K "
-                        "nhờ chuỗi phản ứng gốc tự do peroxy ($RO_2^\\bullet$). Ngọn lửa này hoàn toàn vô hình trước mắt thường và camera quang học."
-                    )
-                    b_std = (
-                        "Theo tiêu chuẩn <b>NASA-STD-6001B</b>, hệ thống an toàn không được phụ thuộc đơn thuần vào cảm biến khói quang học hoặc cảm biến ngọn lửa UV/IR dải thường. "
-                        "Bắt buộc tích hợp <b>Camera hồng ngoại nhiệt bước sóng dài (LWIR Thermal Imager)</b> và <b>Cảm biến điện hóa đo khí Carbon Monoxide (CO ppm sensor)</b> "
-                        "với ngưỡng cảnh báo sớm &lt; 10 ppm."
-                    )
-                    b_emg = (
-                        "1. <b>CẤM MỞ NẮP KHOANG:</b> Nghiêm cấm mở buồng đốt hoặc tháo dỡ thiết bị khi nhiệt độ vỏ chưa giảm dưới 50°C ngay cả khi không còn thấy lửa.<br>"
-                        "2. <b>BƠM KHÍ TRƠ TRIỆT TIÊU:</b> Xả khí Nitrogen hoặc Argon vào buồng để giảm nồng độ oxy xuống dưới 5% nhằm bẻ gãy chuỗi phản ứng lạnh.<br>"
-                        "3. <b>THEO DÕI NỒNG ĐỘ CO:</b> Giám sát liên tục chỉ số CO qua telemetry ECLSS cho đến khi nồng độ trở về mức danh định an toàn (&lt; 5 ppm)."
-                    )
-                else:
-                    b_kin = (
-                        "Discovered in NASA FLEX experiments aboard the ISS, 'Cool Flames' represent a hazardous second-stage combustion regime in microgravity. "
-                        "When radiative heat loss quenches the visible hot flame (~1800 K), low-temperature chemical oxidation sustains invisibly at 600 - 800 K "
-                        "via peroxy radical pathways ($RO_2^\\bullet$), emitting zero visible light while generating deadly Carbon Monoxide (CO)."
-                    )
-                    b_std = (
-                        "Under <b>NASA-STD-6001B</b>, flight safety cannot rely solely on optical smoke detectors or standard UV/IR sensors. "
-                        "Integration of <b>Long-Wave Infrared (LWIR) thermal imagers</b> and <b>electrochemical trace Carbon Monoxide (CO) sensors</b> with "
-                        "detection thresholds &lt; 10 ppm is mandatory for flight payloads."
-                    )
-                    b_emg = (
-                        "1. <b>CONTAINMENT LOCKDOWN:</b> Strictly prohibit opening experimental chamber until surface temperature falls below 50°C.<br>"
-                        "2. <b>INERT GAS PURGE:</b> Flood with gaseous N₂ or Argon to depress O₂ below 5%, extinguishing radical chain reactions.<br>"
-                        "3. <b>CO TELEMETRY MONITORING:</b> Continuously monitor ECLSS trace gas telemetry until CO levels stabilize below 5 ppm."
-                    )
-            elif any(k in q_norm for k in ["mat trang", "moon", "lunar", "0.16", "sao hoa", "mars", "0.38", "ban phan", "mot phan", "vom ban cau", "partial"]):
-                if lang == "vi":
-                    b_kin = (
-                        "Công bố trên Combustion Institute Paper CI-2022-88 xác nhận trọng lực bán phần (0.16g Mặt Trăng, 0.38g Sao Hỏa) tạo ra nghịch lý nguy hiểm nhất: "
-                        "Lực nổi quá yếu để kéo khí nóng lên thành cột thẳng đứng hẹp, nhưng vừa đủ để cuốn khí oxy mới vào chân ngọn lửa. Hậu quả là ngọn lửa bành trướng "
-                        "thành <b>vòm bán cầu mở rộng (Hemispherical Dome)</b>, làm diện tích tiếp xúc với các vách ngăn xung quanh tăng vọt <b>240%</b>!"
-                    )
-                    b_std = (
-                        "Quy chuẩn thiết kế căn cứ bề mặt <b>NASA-STD-6001B</b> quy định khoảng cách an toàn cách ly nhiệt giữa các giá thiết bị trên Mặt Trăng/Sao Hỏa "
-                        "phải tăng tối thiểu <b>2.5 lần</b> so với trạm ISS. Bắt buộc lắp đặt <b>vách ngăn chống cháy chịu nhiệt &gt; 1200°C</b> và sơn phủ phồng nở (intumescent barrier) "
-                        "ngăn bắt lửa lan đáy."
-                    )
-                    b_emg = (
-                        "1. <b>THOÁT HIỂM TẦNG CAO:</b> Khói trên Mặt Trăng lơ lửng sát sàn nhà và ngang tầm ngực; phi hành đoàn phải di chuyển ở tư thế đứng theo dây thoát hiểm.<br>"
-                        "2. <b>XẢ ÁP SUẤT KHOANG SỐNG:</b> Hạ áp suất môi trường sống (Depressurization) nếu được phép để giảm mật độ oxy tuyệt đối ($P_{O2} &lt; 10\\text{ kPa}$).<br>"
-                        "3. <b>HÚT KHÓI TẦNG SÀN:</b> Khởi động quạt hút lọc khói tầng sàn của trạm căn cứ để thu gom bụi bồ hóng tích tụ."
-                    )
-                else:
-                    b_kin = (
-                        "Combustion Institute Paper CI-2022-88 proves partial gravity (0.16g Moon, 0.38g Mars) is paradoxically more hazardous than 0g or 1g. "
-                        "Buoyancy is too weak to loft hot gases into a narrow vertical plume, yet strong enough to continuously supply oxygen to the base. "
-                        "The flame flares into an <b>expanding hemispherical dome</b>, expanding surface contact footprint by <b>240%</b>."
-                    )
-                    b_std = (
-                        "Surface habitat architecture under <b>NASA-STD-6001B</b> requires safety clearance between equipment racks to increase by <b>2.5×</b> "
-                        "compared to ISS standards. <b>Fire barrier bulkheads rated &gt; 1200°C</b> and intumescent thermal barrier coatings are mandatory."
-                    )
-                    b_emg = (
-                        "1. <b>UPRIGHT EVACUATION:</b> Smoke hovers near floor and chest levels; crew must navigate upright using tactile guideline tethers.<br>"
-                        "2. <b>HABITAT DEPRESSURIZATION:</b> Execute emergency cabin depressurization if authorized to suppress absolute oxygen partial pressure ($P_{O2} &lt; 10\\text{ kPa}$).<br>"
-                        "3. <b>LOW-LEVEL SMOKE SCRUBBING:</b> Activate floor-level intake scrubbers to capture settling soot particles."
-                    )
-            elif any(k in q_norm for k in ["pmma", "acrylic", "gio thap", "thong gio thap", "luong gio thap", "nghich ly", "paradox"]) or (("toc do chay" in q_norm or "chay" in q_norm) and any(w in q_norm for w in ["gio", "thong gio", "pmma", "tang toc", "cuc dai"])):
-                if lang == "vi":
-                    b_kin = (
-                        "Dữ liệu thực nghiệm bay NASA SoFIE (Solid Fuel Ignition and Extinction) từ Giá tích hợp Đốt cháy CIR trên ISS chỉ ra rằng: "
-                        "Trong vi trọng lực tĩnh (&lt; 2 cm/s), PMMA tự dập tắt do tổn thất nhiệt bức xạ. Tuy nhiên dưới luồng thông gió khoang từ <b>5 đến 12 cm/s</b>, "
-                        "tốc độ cháy đạt đỉnh cực đại cục bộ (<b>0.51 - 0.78 mm/s</b>), thậm chí <b>nhanh hơn đốt cháy hướng xuống trên Trái Đất</b> do dòng gió "
-                        "liên tục bù oxy tươi mà không gây thổi nguội đối lưu (chế độ số Peclet tối ưu)."
-                    )
-                    b_std = (
-                        "Theo tiêu chuẩn <b>NASA-STD-6001B Test 1</b>, PMMA không đạt chứng chỉ bay cho các vị trí có lưu thông khí &gt; 5 cm/s. "
-                        "Khuyến nghị thay thế bắt buộc: Chuyển sang dùng <b>Polyimide (Kapton HN)</b>, <b>Fluoropolymer (PTFE/Teflon)</b>, hoặc tinh thể <b>Sapphire</b> nhân tạo "
-                        "cho các cửa sổ quan sát quang học."
-                    )
-                    b_emg = (
-                        "1. <b>CẮT GIÓ HVAC TỨC THÌ (T+0s):</b> Tắt quạt thông gió khoang phân khu để hạ vận tốc gió về &lt; 2 cm/s, đẩy ngọn lửa vào vùng tự dập tắt bức xạ.<br>"
-                        "2. <b>ĐEO MẶT NẠ DƯỠNG KHÍ (T+15s):</b> Phi hành đoàn lập tức đeo mặt nạ PBE tránh hít phải khí độc methyl methacrylate phân hủy nhiệt.<br>"
-                        "3. <b>PHUN SƯƠNG NƯỚC LÀM NGUỘI:</b> Sử dụng bình sương nước siêu mịn để hấp thụ nhiệt ẩn bề mặt polyme mà không tạo động lượng vỡ vụn."
-                    )
-                else:
-                    b_kin = (
-                        "NASA SoFIE flight data from the ISS Combustion Integrated Rack (CIR) proves PMMA exhibits a striking ventilation paradox: "
-                        "Spontaneously extinguishing in quiescent drift (&lt; 2 cm/s) due to radiative loss, it accelerates to an alarming peak burning rate "
-                        "(<b>0.51 - 0.78 mm/s</b>) under <b>5 - 12 cm/s</b> airflow—exceeding downward burning on Earth as oxygen is replenished without blowoff cooling."
-                    )
-                    b_std = (
-                        "Under <b>NASA-STD-6001B Test 1</b>, PMMA fails flight clearance for compartments with forced ventilation &gt; 5 cm/s. "
-                        "Mandatory substitution: Deploy <b>Polyimide (Kapton HN)</b>, <b>Fluoropolymer (PTFE)</b>, or optical-grade synthetic <b>Sapphire crystals</b>."
-                    )
-                    b_emg = (
-                        "1. <b>IMMEDIATE HVAC CUT-OFF (T+0s):</b> Cut ventilation fans below 2 cm/s to force the flame into radiative quenching regime.<br>"
-                        "2. <b>PBE DONNING (T+15s):</b> Don Emergency Personal Breathing Equipment against pyrolyzed methyl methacrylate toxic vapor.<br>"
-                        "3. <b>FINE MIST COOLING:</b> Apply fine water mist to extract sensible heat from polymer surface without mechanical shattering."
-                    )
+            clean_ans = str(ai_synthesized_answer).strip()
+            block_matches = list(
+                re.finditer(
+                    r"(?:\*\*BLOCK\s*([123])\s*:[^\n*]*\*\*|#{1,4}\s*BLOCK\s*([123])\s*:[^\n]*|\bBLOCK\s*([123])\s*:[^\n]*)",
+                    clean_ans,
+                )
+            )
+            extracted_blocks = {}
+            for idx_m, match in enumerate(block_matches):
+                blk_num = match.group(1) or match.group(2) or match.group(3)
+                start_pos = match.end()
+                end_pos = block_matches[idx_m + 1].start() if idx_m + 1 < len(block_matches) else len(clean_ans)
+                extracted_blocks[blk_num] = clean_ans[start_pos:end_pos].lstrip("*: \t\r\n").strip()
+            if {"1", "2", "3"}.issubset(extracted_blocks):
+                b_kin = _fmt_online_block(extracted_blocks["1"])
+                b_std = _fmt_online_block(extracted_blocks["2"])
+                b_emg = _fmt_online_block(extracted_blocks["3"])
             else:
-                clean_ans = str(ai_synthesized_answer).replace("**Bản Khuyến cáo Kỹ thuật An toàn Bay", "").replace("**Executive Safety Advisory", "")
                 parts = [p.strip() for p in clean_ans.split("\n\n") if p.strip()]
-                b_kin = parts[0] if len(parts) > 0 else (clean_ans if clean_ans else ("Phân tích động học đốt cháy từ hồ sơ kỹ thuật NASA PSI." if lang == "vi" else "Combustion kinetics synthesized from NASA PSI flight technical records."))
-                b_std = parts[1] if len(parts) > 1 else ("Tuân thủ nghiêm ngặt tiêu chuẩn kiểm tra độ bắt cháy vật liệu theo NASA-STD-6001B và chỉ định phân loại rủi ro bay." if lang == "vi" else "Strict adherence to NASA-STD-6001B material flammability certification standards and flight qualification.")
-                b_emg = parts[2] if len(parts) > 2 else ("1. Cô lập thông gió phân khu tức thời. 2. Phi hành đoàn trang bị dưỡng khí PBE. 3. Xả khí trơ hoặc phun sương nước siêu mịn." if lang == "vi" else "1. Immediate compartmental ventilation shutdown. 2. Crew dons PBE breathing gear. 3. Inert gas flooding or fine water mist suppression.")
+                if online_ok:
+                    b_kin = _fmt_online_block(parts[0]) if len(parts) > 0 else _fmt_online_block(clean_ans)
+                    b_std = _fmt_online_block(parts[1]) if len(parts) > 1 else ("Tuân thủ nghiêm ngặt tiêu chuẩn kiểm tra độ bắt cháy vật liệu theo <b>NASA-STD-6001B</b>." if lang == "vi" else "Strict adherence to <b>NASA-STD-6001B</b> flammability certification.")
+                    b_emg = _fmt_online_block("\n\n".join(parts[2:])) if len(parts) >= 3 else ("1. <b>CÔ LẬP KHẨN CẤP (T+0s):</b> Đóng van HVAC phân khu.<br>2. <b>DƯỠNG KHÍ PBE (T+15s):</b> Phi hành đoàn đeo mặt nạ PBE.<br>3. <b>DẬP LỬA:</b> Sương nước siêu mịn hoặc khí trơ." if lang == "vi" else "1. <b>HVAC ISOLATION (T+0s):</b> Cut ventilation.<br>2. <b>PBE DONNING (T+15s):</b> Crew don PBE.<br>3. <b>SUPPRESSION:</b> Fine water mist or inert purge.")
+                else:
+                    b_kin = _fmt_online_block(parts[0]) if len(parts) > 0 else ("Phân tích động học đốt cháy từ hồ sơ kỹ thuật NASA PSI." if lang == "vi" else "Combustion kinetics synthesized from NASA PSI flight technical records.")
+                    b_std = _fmt_online_block(parts[1]) if len(parts) > 1 else ("Tuân thủ nghiêm ngặt tiêu chuẩn kiểm tra độ bắt cháy vật liệu theo NASA-STD-6001B." if lang == "vi" else "Strict adherence to NASA-STD-6001B flammability certification.")
+                    b_emg = _fmt_online_block(parts[2]) if len(parts) > 2 else ("1. Cô lập thông gió phân khu tức thời. 2. Đeo PBE. 3. Xả CO2 / sương nước." if lang == "vi" else "1. Immediate ventilation shutdown. 2. Crew dons PBE. 3. CO2 or fine water mist suppression.")
 
-            doc_rep_id = top_doc['report_id'] if top_doc else "NASA-PSI-2026"
-            directive_code = f"NASA-DIR-{str(doc_rep_id).replace('/', '-')}"
+            # Persist turn to Multi-Turn Session History (deduped against most recent user turn)
+            _hist = st.session_state.setdefault("rag_chat_history", [])
+            _last_user_msg = next((m.get("content") for m in reversed(_hist) if m.get("role") == "user"), None)
+            if _last_user_msg != user_query:
+                _hist.append({"role": "user", "content": user_query})
+                _hist.append({"role": "assistant", "content": str(ai_synthesized_answer)[:800]})
+
+            if len(_hist) > 2:
+                with st.expander(f"{t.get('rag_chat_history_title', '💬 Multi-Turn History')} ({len(_hist) // 2})", expanded=False):
+                    for _msg in _hist[:-2]:
+                        _role_lbl = "CREW" if _msg.get("role") == "user" else "COPILOT"
+                        _safe_hist_txt = html.escape(str(_msg.get("content", ""))[:260], quote=True)
+                        st.markdown(f"**{_role_lbl}:** {_safe_hist_txt}")
+
+            doc_rep_id = (top_doc.get("report_id") or top_doc.get("doc_id") or "NASA-PSI-2026") if top_doc else "NASA-PSI-2026"
+            safe_rep_id = html.escape(str(doc_rep_id), quote=True)
+            safe_badge_rag = html.escape(str(badge_rag), quote=True)
+            directive_code = html.escape(f"NASA-DIR-{str(doc_rep_id).replace('/', '-')}", quote=True)
             classification = "OPERATIONAL SAFETY DIRECTIVE • PRIORITY 1"
 
             render_html(f"""
@@ -4896,7 +6334,7 @@ with tab_rag:
                     <div class="nasa-directive-header">
                         <div>
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <span class="nasa-pill" style="background: #0B3D91; margin: 0; font-size: 0.70rem;">{badge_rag}</span>
+                                <span class="nasa-pill" style="background: #0B3D91; margin: 0; font-size: 0.70rem;">{safe_badge_rag}</span>
                                 <span style="font-size: 0.74rem; color: #10B981; font-weight: 700; font-family: 'JetBrains Mono', monospace;">
                                     {t['grounded_evidence_badge']}
                                 </span>
@@ -4906,8 +6344,8 @@ with tab_rag:
                             </div>
                         </div>
                         <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #38BDF8; text-align: right;">
-                            REF: {doc_rep_id}<br>
-                            SEC: {top_doc['section'].split(':')[0] if top_doc else 'GEN'} • P.{top_doc['page'] if top_doc else '1'}
+                            REF: {safe_rep_id}<br>
+                            SEC: {html.escape(str(top_doc.get('section', 'GEN') if top_doc else 'GEN').split(':')[0], quote=True)} • P.{html.escape(str(top_doc.get('page', 1) if top_doc else '1'), quote=True)}
                         </div>
                     </div>
                     
@@ -4963,16 +6401,16 @@ with tab_rag:
                 st.warning("Không tìm thấy đoạn văn nào phù hợp với câu hỏi." if lang == "vi" else "No matching passages found for this query.")
             else:
                 for rank_idx, (sim_score, doc_item) in enumerate(matched_results):
-                    pct_score = int(sim_score * 100)
+                    pct_score = max(0, min(100, int(sim_score * 100)))
                     score_color = "#10B981" if pct_score >= 60 else "#38BDF8" if pct_score >= 40 else "#F59E0B"
                     
-                    doc_title = doc_item["title"]
-                    doc_rep = doc_item["report_id"]
-                    doc_sec = doc_item["section"]
-                    doc_page = doc_item["page"]
-                    doc_auth = doc_item["authors"]
-                    doc_fac = doc_item["facility"]
-                    doc_text = doc_item["text"]
+                    doc_title = html.escape(str(doc_item.get("title", "Uploaded Document")), quote=True)
+                    doc_rep = html.escape(str(doc_item.get("report_id", doc_item.get("doc_id", "USER-UPLOAD"))), quote=True)
+                    doc_sec = html.escape(str(doc_item.get("section", "Uploaded Document")), quote=True)
+                    doc_page = html.escape(str(doc_item.get("page", 1)), quote=True)
+                    doc_auth = html.escape(str(doc_item.get("authors", "Mission Operator")), quote=True)
+                    doc_fac = html.escape(str(doc_item.get("facility", "User Upload")), quote=True)
+                    doc_text = html.escape(str(doc_item.get("text", "")), quote=True)
 
                     render_html(f"""
                         <div class="rag-result-card" style="border-top: 2.5px solid {score_color}; margin-bottom: 14px;">
@@ -5025,19 +6463,41 @@ with tab_rag:
         target_copilot_res = matching_copilot.iloc[0] if not matching_copilot.empty else results_df.iloc[0]
         target_copilot_mat = target_copilot_res["raw_mat"]
 
-        cp_name = target_copilot_mat.get('material_name_vi', target_copilot_mat['material_name']) if lang == "vi" else target_copilot_mat['material_name']
-        cp_psi = target_copilot_mat['psi_id']
-        cp_mission = target_copilot_mat['mission']
-        cp_cat = target_copilot_mat.get('category_vi', target_copilot_mat['category']) if lang == "vi" else target_copilot_mat['category']
-        
-        cp_geom = target_copilot_mat.get("geometry_vi", target_copilot_mat["geometry"]) if lang == "vi" else target_copilot_mat["geometry"]
-        cp_morph = target_copilot_mat.get("flame_morphology_vi", target_copilot_mat["flame_morphology"]) if lang == "vi" else target_copilot_mat["flame_morphology"]
-        
-        cp_chem = target_copilot_mat['chemical_formula']
-        cp_hoc = float(target_copilot_mat['heat_of_combustion_mj_kg'])
-        cp_moc_1g = float(target_copilot_mat['moc_1g'])
-        cp_moc_ug = float(target_copilot_mat['moc_microg'])
-        cp_spread = float(target_copilot_mat['base_spread_rate_mm_s'])
+        cp_name_raw = str(
+            target_copilot_mat.get('material_name_vi', target_copilot_mat.get('material_name', target_copilot_mat.get('name', 'Custom Specimen')))
+            if lang == "vi"
+            else target_copilot_mat.get('material_name', target_copilot_mat.get('name', 'Custom Specimen'))
+        )
+        cp_psi_raw = str(target_copilot_mat.get('psi_id', 'CUSTOM-SPEC'))
+        cp_mission_raw = str(target_copilot_mat.get('mission', 'User Composite Bench'))
+        cp_cat_raw = str(
+            target_copilot_mat.get('category_vi', target_copilot_mat.get('category', 'Custom Composite'))
+            if lang == "vi"
+            else target_copilot_mat.get('category', 'Custom Composite')
+        )
+        cp_geom_raw = str(
+            target_copilot_mat.get("geometry_vi", target_copilot_mat.get("geometry", "Custom Composite Slab"))
+            if lang == "vi"
+            else target_copilot_mat.get("geometry", "Custom Composite Slab")
+        )
+        cp_morph_raw = str(
+            target_copilot_mat.get("flame_morphology_vi", target_copilot_mat.get("flame_morphology", "Custom Polymer Transport"))
+            if lang == "vi"
+            else target_copilot_mat.get("flame_morphology", "Custom Polymer Transport")
+        )
+        cp_chem_raw = str(target_copilot_mat.get('chemical_formula', 'Custom Polymer Matrix'))
+        cp_hoc = float(target_copilot_mat.get('heat_of_combustion_mj_kg', target_copilot_mat.get('hoc_mj_kg', 20.0)))
+        cp_moc_1g = float(target_copilot_mat.get('moc_1g', 21.0))
+        cp_moc_ug = float(target_copilot_mat.get('moc_microg', target_copilot_mat.get('moc_ug', 21.0)))
+        cp_spread = float(target_copilot_mat.get('base_spread_rate_mm_s', target_copilot_res.get('flame_spread_rate_mm_s', 0.5)))
+
+        cp_name = html.escape(cp_name_raw, quote=True)
+        cp_psi = html.escape(cp_psi_raw, quote=True)
+        cp_mission = html.escape(cp_mission_raw, quote=True)
+        cp_cat = html.escape(cp_cat_raw, quote=True)
+        cp_geom = html.escape(cp_geom_raw, quote=True)
+        cp_morph = html.escape(cp_morph_raw, quote=True)
+        cp_chem = html.escape(cp_chem_raw, quote=True)
 
         pct_hoc = min(100, max(5, int((cp_hoc / 50.0) * 100)))
         pct_moc_1g = min(100, max(5, int((cp_moc_1g / 32.0) * 100)))
@@ -5136,7 +6596,7 @@ with tab_rag:
         
         show_offline_copilot = True
         if ("Online" in ai_mode or "Trực tuyến" in ai_mode) and api_key_input.strip():
-            copilot_cache_key = f"copilot_run_{target_copilot_mat['material_id']}_{gravity_g}_{oxygen_pct}_{pressure_kpa}_{airflow_cm_s}"
+            copilot_cache_key = f"copilot_run_{target_copilot_mat['material_id'] if 'material_id' in target_copilot_mat else target_copilot_res['material_id']}_{gravity_g}_{oxygen_pct}_{pressure_kpa}_{airflow_cm_s}_{temp_c}_{rh_pct}_{lang}"
             btn_col1, _ = st.columns([1.2, 1.0])
             with btn_col1:
                 if st.button("🚀 " + ("Phân tích Trực tuyến bằng " + llm_provider if lang == "vi" else "Run Online Analysis with " + llm_provider), key="btn_run_online_copilot"):
@@ -5146,15 +6606,17 @@ with tab_rag:
                 show_offline_copilot = False
                 with st.spinner(diag_spinner):
                     ai_insight_text, used_mode = AICoPilotEngine.call_online_ai(
-                        api_key_input.strip(), llm_provider, cp_name, cp_psi, cp_mission, cp_chem,
+                        api_key_input.strip(), llm_provider, cp_name_raw, cp_psi_raw, cp_mission_raw, cp_chem_raw,
                         float(cp_moc_ug), float(cp_moc_1g), float(gravity_g), float(oxygen_pct),
                         float(pressure_kpa), float(airflow_cm_s), float(target_copilot_res["sfrs"]),
                         str(target_copilot_res["tier"]), float(target_copilot_res["effective_moc"]),
-                        float(target_copilot_res["flame_spread_rate_mm_s"]), bool(cp_cf_active), lang=lang
+                        float(target_copilot_res["flame_spread_rate_mm_s"]), bool(cp_cf_active), lang=lang,
+                        temp_c=float(temp_c), rh_pct=float(rh_pct),
                     )
-                    badge_txt = f"ONLINE: {llm_provider}" if used_mode == "online" else "OFFLINE AEROSPACE ENGINE"
-                    ai_fmt = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', ai_insight_text)
-                    ai_fmt = re.sub(r'^###?\s+(.+)$', r'<div style="font-weight: 800; color: #00F2FF; margin-top: 12px; margin-bottom: 4px;">\1</div>', ai_fmt, flags=re.MULTILINE)
+                    badge_txt = f"ONLINE: {html.escape(str(llm_provider), quote=True)}" if used_mode == "online" else "OFFLINE AEROSPACE ENGINE"
+                    safe_ai_text = html.escape(str(ai_insight_text), quote=True)
+                    ai_fmt = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', safe_ai_text)
+                    ai_fmt = re.sub(r'^#{1,4}\s+(.+)$', r'<div style="font-weight: 800; color: #00F2FF; margin-top: 12px; margin-bottom: 4px;">\1</div>', ai_fmt, flags=re.MULTILINE)
                     ai_fmt = ai_fmt.replace('\n', '<br>')
                     render_html(f"""
                         <div class="nasa-directive-container" style="margin-top: 10px;">
@@ -5224,7 +6686,8 @@ with tab_rag:
                 </div>
             """)
 
-with tab_matrix:
+@st.fragment
+def render_matrix_tab_fragment(results_df, lang, t, cabin_state):
     st.markdown(f"### {t['tab4_title']}")
     st.caption(t['tab4_caption'])
 
@@ -5265,7 +6728,7 @@ with tab_matrix:
             <tr>
                 <td style="width: 22%;">
                     <b style="color: #FFFFFF; font-size: 0.88rem;">{m_name}</b><br>
-                    <span class="{badge_class}">{m_tier} (SFRS {m_sfrs:.1f})</span><br>
+                    <span class="{badge_class}">{m_tier} ({render_acronym_tooltip('SFRS', lang, 'SFRS')} {m_sfrs:.1f})</span><br>
                     <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: #9CA3AF;">{id_lbl} {m_id}</span>
                 </td>
                 <td style="width: 26%; color: #F3F4F6; border-left: 1px solid #1F293D;">
@@ -5401,6 +6864,32 @@ with tab_matrix:
             width="stretch"
         )
 
+        # MILESTONE M5: Downloadable NASA Technical Memorandum PDF Mission Safety Dossier
+        _pdf_scenario = {
+            **cabin_state,
+            "max_sfrs": float(results_df["sfrs"].max()),
+            "cool_flame_alerts": int(sum(1 for cf in results_df["cool_flame"] if (isinstance(cf, tuple) and cf[0]) or cf is True)),
+        }
+        _pdf_mats = [
+            {
+                "name": str(row["material_name"]),
+                "moc_1g": float(row["raw_mat"].get("moc_1g", 21.0)),
+                "moc_eff": float(row["effective_moc"]),
+                "spread_rate_cm_s": float(row["flame_spread_rate_mm_s"]) / 10.0,
+                "sfrs": float(row["sfrs"]),
+                "tier": str(row["tier"]),
+            }
+            for _, row in results_df.iterrows()
+        ]
+        _pdf_bytes = pdf_dossier.generate_mission_safety_dossier_pdf(_pdf_scenario, _pdf_mats)
+        st.download_button(
+            label=t.get("btn_download_pdf", "📑 Download Mission Safety Dossier (NASA TM PDF)"),
+            data=_pdf_bytes,
+            file_name=f"nasa_mission_dossier_{report_payload['report_id']}.pdf",
+            mime="application/pdf",
+            width="stretch",
+        )
+
     with col_exp_preview:
         st.markdown("##### 🖨️ " + ("Bản xem trước chuẩn in ấn (Print-Ready View)" if lang == "vi" else "Print-Ready Technical Briefing View"))
         mandates_li = "".join([f"<li style='margin-bottom: 4px;'>{m}</li>" for m in report_payload["universal_mandates"]])
@@ -5443,7 +6932,8 @@ with tab_matrix:
         """
         render_html(briefing_sheet_html)
 
-with tab_research:
+@st.fragment
+def render_tab_research(lang, t, sofie_df, saffire_df, bass_df, materials_df):
     st.markdown(f"### {t['tab5_title']}")
     st.caption(t['tab5_caption'])
 
@@ -5555,11 +7045,63 @@ with tab_research:
     </table></div>
     """)
 
+# ==============================================================================
+# TAB INSTANTIATION WITH DEFERRED EXECUTION & ACTIVE TAB TRACKING (MILESTONE M1)
+# ==============================================================================
+TAB_SLUGS = ["sim", "morph", "rag", "matrix", "research"]
+TAB_LABELS = [
+    t["tab_sim"],
+    t["tab_morph"],
+    t["tab_rag"],
+    t["tab_matrix"],
+    t["tab_research"]
+]
+slug_to_label = dict(zip(TAB_SLUGS, TAB_LABELS))
+label_to_slug = dict(zip(TAB_LABELS, TAB_SLUGS))
+
+# Resolve default tab based on session state (restored from URL or previous action)
+active_slug = st.session_state.get("active_tab_id", "sim")
+default_tab_label = slug_to_label.get(active_slug, TAB_LABELS[0])
+
+tab_key = f"main_nav_tabs_{lang}"
+tab_sim, tab_morph, tab_rag, tab_matrix, tab_research = st.tabs(
+    TAB_LABELS,
+    default=default_tab_label,
+    key=tab_key,
+    on_change="rerun"
+)
+
+# Synchronize active_tab_id with user tab click
+selected_label = st.session_state.get(tab_key, default_tab_label)
+if selected_label in label_to_slug:
+    st.session_state.active_tab_id = label_to_slug[selected_label]
+
+# DEFERRED TAB RENDERING: Only execute active tab, skip all inactive tabs!
+with tab_sim:
+    if getattr(tab_sim, "open", True):
+        render_tab_sim(results_df, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, lang, t, cabin_state)
+
+with tab_morph:
+    if getattr(tab_morph, "open", True):
+        render_tab_morph(results_df, gravity_g, oxygen_pct, pressure_kpa, airflow_cm_s, lang, t)
+
+with tab_rag:
+    if getattr(tab_rag, "open", True):
+        render_tab_rag(lang, t, vector_db, materials_df, cabin_state, results_df, ai_mode, llm_provider, api_key_input)
+
+with tab_matrix:
+    if getattr(tab_matrix, "open", True):
+        render_matrix_tab_fragment(results_df, lang, t, cabin_state)
+
+with tab_research:
+    if getattr(tab_research, "open", True):
+        render_tab_research(lang, t, sofie_df, saffire_df, bass_df, materials_df)
+
 render_html(f"""
 <div class="nasa-footer">
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 24px; margin-bottom: 24px;">
         <div style="display: flex; gap: 16px; align-items: center;">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/e/e5/NASA_logo.svg" style="width: 56px; height: 56px;" alt="NASA Insignia">
+            {render_mission_patch_svg(56, uid="footer")}
             <div>
                 <b style="color: #FFFFFF; font-size: 0.95rem; font-family: 'Plus Jakarta Sans', sans-serif;">National Aeronautics and Space Administration</b><br>
                 <span>{t['footer_mission_text']}</span>
@@ -5579,7 +7121,7 @@ render_html(f"""
             <b style="color: #94A3B8;">Team:</b> Bebo ZeroG-X &nbsp;•&nbsp; 
             <b style="color: #94A3B8;">Institution:</b> THPT FPT (FPT High School)
         </div>
-        <div style="font-size: 0.72rem; color: #64748B; font-family: 'JetBrains Mono', monospace;">
+        <div style="font-size: 0.72rem; color: #94A3B8; font-family: 'JetBrains Mono', monospace;">
             Bebo Ignis-0G Microgravity Engine
         </div>
     </div>
@@ -5598,3 +7140,68 @@ render_html(f"""
     </div>
 </div>
 """)
+
+# ==============================================================================
+# BIDIRECTIONAL URL QUERY PARAMS & LOCALSTORAGE SYNCHRONIZATION (MILESTONE M1)
+# ==============================================================================
+def sync_state_to_query_params():
+    target_qp = {
+        "tab": st.session_state.get("active_tab_id", "sim"),
+        "preset": st.session_state.get("preset_selector", "ISS"),
+        "g": f"{float(st.session_state.get('gravity_val', 0.0)):.2f}",
+        "o2": f"{float(st.session_state.get('o2_val', 21.0)):.1f}",
+        "p": f"{float(st.session_state.get('p_val', 101.3)):.1f}",
+        "v": f"{float(st.session_state.get('v_val', 10.0)):.1f}",
+        "t": f"{float(st.session_state.get('temp_val', 21.0)):.1f}",
+        "rh": f"{float(st.session_state.get('rh_val', 45.0)):.1f}",
+        "lang": st.session_state.get("lang", "en"),
+    }
+    try:
+        if hasattr(st, "query_params"):
+            for k, v in target_qp.items():
+                if st.query_params.get(k) != v:
+                    st.query_params[k] = v
+    except Exception:
+        pass
+    return target_qp
+
+current_synced_qp = sync_state_to_query_params()
+
+# Secondary localStorage persistence for clean URLs via invisible iframe component
+import streamlit.components.v1 as components
+_ls_payload = json.dumps(current_synced_qp)
+components.html(
+    f"""
+    <script>
+    (function() {{
+        try {{
+            const KEY = 'nasa_flames_session_state_v1';
+            const search = window.parent.location.search;
+            const hasParams = search && (search.includes('preset=') || search.includes('g=') || search.includes('tab='));
+            if (!hasParams) {{
+                const saved = localStorage.getItem(KEY);
+                if (saved) {{
+                    const parsed = JSON.parse(saved);
+                    const qp = new URLSearchParams();
+                    for (const [k, v] of Object.entries(parsed)) {{
+                        if (v !== undefined && v !== null && k !== 'timestamp') {{
+                            qp.set(k, v);
+                        }}
+                    }}
+                    const qpStr = qp.toString();
+                    if (qpStr) {{
+                        window.parent.location.search = '?' + qpStr;
+                        return;
+                    }}
+                }}
+            }}
+            localStorage.setItem(KEY, JSON.stringify({_ls_payload}));
+        }} catch (e) {{
+            // Ignore cross-origin or storage access errors
+        }}
+    }})();
+    </script>
+    """,
+    height=0,
+    width=0
+)

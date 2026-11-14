@@ -3,15 +3,16 @@
 **Team:** Bebo ZeroG-X | **Institution:** Trường THPT FPT (FPT High School)  
 **Team Lead & System Architect:** Vũ Bảo Nam (Vu Bao Nam)  
 **Members:** Đỗ Duy Nam • Lương Đức Tùng • Trịnh Đức Anh  
-**Core Combustion Engine:** `Bebo Ignis-0G` Microgravity Combustion Physics & RAG Engine
+**Core Combustion Engine:** `Bebo Ignis-0G` Microgravity Combustion Physics & RAG Engine  
+**License:** Dual-Licensed under Apache License 2.0 / MIT License ([LICENSE](LICENSE) — Apache 2.0 default per NASA Space Apps SEPA Rule 7)
 
-   ---
+---
 
-   An expert-grade interactive Mission Control safety platform built with **Streamlit** and **Plotly** to evaluate, rank, and simulate fire behavior in extreme spaceflight environments (ISS, Lunar Artemis Habitat, Mars Transit) using real NASA Physical Sciences Informatics (PSI) research datasets (SoFIE, Saffire, BASS-II, FLEX-2).
+An expert-grade interactive Mission Control safety platform built with **Streamlit** and **Plotly** to evaluate, rank, and simulate fire behavior in extreme spaceflight environments (ISS, Lunar Artemis Habitat, Mars Transit) using real NASA Physical Sciences Informatics (PSI) research datasets (SoFIE, Saffire, BASS-II, FLEX-2).
 
-   ---
+---
 
-   ## 👨‍🚀 Team & Author Attribution
+## 👨‍🚀 Team & Author Attribution
 
 - **Team Name:** Bebo ZeroG-X
 - **Team Lead & System Architect:** Vũ Bảo Nam (Vu Bao Nam)
@@ -24,131 +25,140 @@
 - **Project Topic:** *Flames in Freefall: SI-Powered Fire Safety Insights from Microgravity Combustion Data*
 - **Competition:** Official Entry for **NASA Space Apps Challenge 2026**
 - **Core Engine:** **Bebo Ignis-0G** Microgravity Combustion Physics & RAG Vector Space Engine
+- **Open-Source License:** Dual-Licensed under Apache License 2.0 / MIT License ([LICENSE](LICENSE))
 
-   ---
+---
 
-   ## 🖥️ Live Demo & Preview
+## 🖥️ Live Demo & Competition Assets
 
-- 🌐 **Live Web Application:** [Launch Flames in Freefall Dashboard](https://beboignis-0g.streamlit.app/) *(Official Deployment on Streamlit Community Cloud)*
-- 🎬 **2-Minute Video Pitch & Walkthrough:** [Watch Official Video Pitch](https://github.com/baonamv200/Bebo-ZeroG-X#readme) • *Bebo ZeroG-X Team*
-- 🛰️ **NASA Space Apps Challenge Entry:** [Official Project Submission Dossier](NASA_SPACE_APPS_SUBMISSION.md) • *Bebo ZeroG-X*
+- 🌐 **Live Web Application:** [Launch Flames in Freefall Dashboard](https://flames-in-freefall.streamlit.app) *(Official Deployment on Streamlit Community Cloud)*
+- 📊 **7-Slide English Presentation Deck:** [Flames_in_Freefall_Presentation.pptx](Flames_in_Freefall_Presentation.pptx) *(Max 7 slides including cover, 100% English per SEPA rules)*
+- 🎬 **30-Second Demo Video Script:** [VIDEO_PITCH_SCRIPT_2MIN.md](VIDEO_PITCH_SCRIPT_2MIN.md) *(Primary 30-second live-demo script with mandatory English subtitles & NASA PSI data citation, plus optional 2-minute pitch backup)*
+- 🛰️ **Official Submission & Checklists:** [NASA_SPACE_APPS_SUBMISSION.md](NASA_SPACE_APPS_SUBMISSION.md) • [NASA_SUBMISSION_CHECKLIST.md](NASA_SUBMISSION_CHECKLIST.md) • [HUONG_DAN_NOP_BAI_VA_THUYET_TRINH.md](HUONG_DAN_NOP_BAI_VA_THUYET_TRINH.md)
 
-   ---
+---
 
-   ## 📂 Project Architecture
+## 📂 Project Architecture
 
-   ```text
-   flames-in-freefall/
-   │
-   ├── app.py                             # Core Streamlit application (NASA.gov WDS design, Bebo Ignis-0G Engine, RAG, Visualizers)
-   ├── i18n.py                            # Bilingual internationalization dictionary (vi/en) & emergency suppression database
-   ├── requirements.txt                   # Production Python package dependencies
-   ├── README.md                          # Engineering documentation & quickstart guide
-   │
-   └── data/                              # NASA Physical Sciences Informatics (PSI) experimental datasets
-      ├── sofie_pmma_burn_rates.csv      # NASA SoFIE microgravity PMMA rod burn rate & airflow data
-      ├── saffire_pressure_oxygen.csv    # NASA Saffire large-scale fabric burns in Cygnus resupply craft
-      └── bass_extinction_limits.csv     # NASA BASS-II & FLEX extinction boundaries & LOI measurements
-   ```
+```text
+Bebo-ZeroG-X/
+│
+├── app.py                              # Mission Control HUD: @st.fragment tabs, F5 persistence, ?tab=compare URL sync, inline SVG patch, WCAG AA #94A3B8, alerts
+├── i18n.py                             # Bilingual EN/VI dictionary (220 keys), 7 ARIA acronym tooltips, emergency suppression matrix
+├── physics_models.py                   # Arden Buck T/RH vapor dilution, NTC Cool Flame kinetics, NASA-STD-6001B, custom composite & diff
+├── rag_engine.py                       # Dense TF-IDF + TruncatedSVD LSI vector RAG, PDF/TXT/MD chunking, multi-turn history & directives
+├── pdf_dossier.py                      # Pure-Python multi-page %PDF-1.4 Mission Safety Dossier writer (NaN/Inf guarded)
+├── threejs_flame.py                    # Self-contained Three.js 360° WebGL spherical/buoyant flame & 450-particle emitter
+├── LICENSE                             # Dual-Licensed under Apache License 2.0 (SEPA Rule 7 default) / MIT License
+├── Flames_in_Freefall_Presentation.pptx # Official 7-slide English SEPA presentation deck (max 7 slides including cover)
+├── VIDEO_PITCH_SCRIPT_2MIN.md          # Primary 30-second live-demo script (EN subtitles & NASA PSI citation) + optional 2-min pitch backup
+├── requirements.txt                    # Production Python package dependencies
+├── pyproject.toml                      # Maturin build config & pytest discovery settings
+├── Cargo.toml                          # Rust PyO3 0.24 extension crate manifest (nasa_rust)
+├── .streamlit/config.toml              # NASA theme config & telemetry opt-out (gatherUsageStats = false)
+│
+├── src/                                # Compiled Rust native core (nasa_rust via PyO3 + maturin)
+│   ├── lib.rs                          # PyO3 module exports & health check
+│   ├── physics.rs                      # Core microgravity combustion equations & finite-float guards
+│   ├── mesh.rs                         # Sub-millisecond 60x60 2D isothermal field solver
+│   ├── models.rs                       # Material & curve data structures
+│   ├── sweeps.rs                       # Cached paradox & boundary parameter sweep evaluators
+│   ├── vector_db.rs                    # Fast Rust-backed vector similarity index
+│   └── data_loader.rs                  # Portable PSI CSV resolver (NASA_DATA_DIR & ancestor search)
+│
+├── data/                               # NASA Physical Sciences Informatics (PSI) experimental datasets
+│   ├── sofie_pmma_burn_rates.csv       # NASA SoFIE microgravity PMMA rod burn rate & airflow data
+│   ├── saffire_pressure_oxygen.csv     # NASA Saffire large-scale fabric burns in Cygnus resupply craft
+│   └── bass_extinction_limits.csv      # NASA BASS-II & FLEX extinction boundaries & LOI measurements
+│
+└── tests/                              # 406 automated tests (391 Python pytest across 5 tiers + 15 Rust cargo integration tests)
+```
 
-   ---
+---
 
-   ## 🚀 Key Highlights & Physics Features
+## 🚀 Key Highlights & Physics Features
 
-1. **Space Fire Risk Score (SFRS, 0-100)**:
-   - Evaluates non-linear microgravity combustion behavior where low-velocity ventilation ($5-20\text{ cm/s}$) eliminates natural buoyant heat loss while continuously feeding fresh oxidizer, making materials ignite at **lower oxygen concentrations (MOC)** than on Earth ($1.0g$).
-2. **Cool Flames & Radiative Extinction Modeling**:
-   - Accurately captures the twin branches of microgravity extinction: **Radiative Quenching** at quiescent flow ($< 3\text{ cm/s}$) and **Convective Blowoff** at high flow ($> 35\text{ cm/s}$).
-   - Emits alerts when conditions transition into the **Cool Flames Region** (low-temperature $500-800\text{ K}$ smoldering producing dangerous CO gas without visible light).
-3. **NASA PSI Data Pipeline**:
-   - Ingests raw experimental datasets from `data/sofie_pmma_burn_rates.csv`, `data/saffire_pressure_oxygen.csv`, and `data/bass_extinction_limits.csv`.
-   - Seamless fallback to embedded aerospace cache if external files are unavailable.
-4. **Mission Environment Simulator (Bebo Ignis-0G)**:
-   - 6 flight-certified mission presets including **ISS Standard** ($0.0g, 21\%\text{ O}_2, 101.3\text{ kPa}$), **Moon Base / Pressurized Rover** ($0.16g, 30\%\text{ O}_2, 70.3\text{ kPa}$), **Artemis Lunar Cabin** ($0.16g, 34\%\text{ O}_2, 56.5\text{ kPa}$), **EVA Spacesuit Pre-breathe** ($0.16g, 100\%\text{ O}_2, 29.6\text{ kPa}$), **Mars Transit** ($0.38g, 26\%\text{ O}_2, 70.0\text{ kPa}$), and **Earth Baseline** ($1.0g$).
-   - Real-time parameter sweeps for Gravity ($0.00 - 1.00g$), Oxygen ($14.0 - 100.0\%$), Cabin Pressure ($25.0 - 105.0\text{ kPa}$), and Airflow ($0 - 50\text{ cm/s}$).
-5. **Dual-Engine AI Co-Pilot (Summarize, Rank & Interpret)**:
-   - **Offline Deterministic Expert System**: Instantaneous aerospace combustion physics reasoning answering why a material is hazardous, design alternatives (NASA-STD-6001B), and emergency HVAC/suppression actions.
-   - **Online LLM Bridge**: Supports Gemini API (upgraded to `gemini-2.5-flash`) or OpenAI API key for extended live mission briefings.
-6. **Mission Safety Briefing & Digital Attribution Export**:
-   - One-click generation of print-ready technical briefing sheets, downloadable Markdown dossiers, and `.json` telemetry exports signed with team attribution (`Bebo ZeroG-X | Vũ Bảo Nam, Đỗ Duy Nam, Lương Đức Tùng, Trịnh Đức Anh`).
-7. **Academic Literature & PSI Citations**:
-   - Cross-linked with original peer-reviewed papers, Experiment IDs, and Principal Investigators (Urban, Olson, Ferketič, T'ien, Williams).
+1. **Space Fire Risk Score (SFRS, 0–100) & NASA-STD-6001B Calibration:**
+   - Evaluates non-linear microgravity combustion where low-velocity ventilation ($5–20\text{ cm/s}$) eliminates buoyant heat loss while feeding fresh oxidizer, lowering Minimum Oxygen Concentration ($\text{MOC}_{\text{eff}}$) below terrestrial $1.0g$ limits and calibrating material risk against `NASA-STD-6001B` Test 1 & Test 2.
+2. **Environmental $T$ & $RH$ Coupling & Cool Flame NTC Oscillations:**
+   - Incorporates Arden Buck ambient Temperature ($T$) and Relative Humidity ($RH$) water-vapor dilution across curves, sweeps, and material evaluations.
+   - Simulates twin extinction branches (**Radiative Quenching** $< 3\text{ cm/s}$ and **Convective Blowoff** $> 35\text{ cm/s}$) and dynamic Negative Temperature Coefficient (**Cool Flames**, $500–800\text{ K}$) oscillatory $T(t)$ and $[\text{CO}](t)$ profiles.
+3. **Zero-Rerun State Engine, Brand Compliance & Multi-Sensory Cockpit Alerts:**
+   - `@st.fragment` tab isolation paired with `localStorage` F5 persistence, bidirectional URL deep-linking (`?tab=&preset=&g=&o2=&p=&v=&t=&rh=`, including `?tab=compare` deep-link expander support that maps to `sim` and auto-expands Side-by-Side Scenario Comparison), paired sliders & exact numeric inputs, mobile responsive CSS reflow, and 7 WCAG/ARIA acronym tooltips (`Da`, `Re`, `Pe`, `Ri`, `SFRS`, `MOC`, `ΔO2%`) across 220 EN/VI keys.
+   - Uses a self-contained inline SVG **Bebo Ignis-0G Mission Patch** (no external Wikimedia NASA Meatball logo dependency) and **WCAG AA `#94A3B8`** foreground text contrast (`6.83:1` against `#0D1930`).
+   - Emits Web Audio `880/1046 Hz` alarm chimes and pulsing `#EF4444` emergency viewport borders (`nasaCriticalBorderPulse` / `screenBorderEmergencyPulse`) when `SFRS > 85.0`.
+4. **Custom Composite Screening, Scenario Comparison & Multi-Page PDF Dossier:**
+   - Evaluates custom composite polymers ($\rho, c_p, k, T_{\text{ign}}, \text{MOC}, \text{HOC}$) against `NASA-STD-6001B`, compares any two mission scenarios side-by-side with a 5-axis Polar Radar chart (`?tab=compare`), and exports multi-page `%PDF-1.4` Mission Safety Dossiers (`pdf_dossier.py`).
+5. **Dual-Engine AI Co-Pilot & Dense Semantic Vector RAG:**
+   - **Offline Dense Semantic Vector Search:** Normalized TF-IDF + `TruncatedSVD` LSI indexing 14 NASA Technical Reports (`NASA/TM`, `NASA/CR`, `NASA-STD-6001B`), with custom PDF/TXT/MD document ingestion (300-word sliding window, 50-word overlap), multi-turn query reformulation, and dynamically grounded 3-block safety directives.
+   - **Online LLM Bridge:** Optional `gemini-2.5-flash` or OpenAI integration with timeout/`SAFETY`/empty-response resilience and hashed cache isolation.
 
-   ---
+---
 
-   ## 🌟 Advanced Aerospace Modules
+## 🌟 Advanced Aerospace Modules
 
-   ### 🤖 1. Battle-Tested RAG & Semantic Vector Search ("Ask NASA PSI Docs")
-   - **High-Dimensional Vector Search Engine:** Hybrid TF-IDF and normalized cosine similarity search indexing 14 official NASA technical reports (NASA/TM, NASA/CR, NASA-STD-6001B) with sub-4ms retrieval latency.
-   - **Precision Evidence Extraction:** Freeform semantic queries in Vietnamese and English (e.g., *"Điều gì xảy ra với tốc độ cháy của nhựa PMMA dưới luồng gió thông gió thấp trong vi trọng lực?"*) return exact excerpts, match confidence scores (%), official report numbers, sections, page citations, and PIs.
-   - **Synthesized Flight Safety Advisory:** Generates grounded answers formulating technical safety guidance based directly on flight-proven data.
+### 🤖 1. Dense Semantic Vector RAG & Custom Upload Co-Pilot ("Ask NASA PSI Docs")
+- **Hybrid LSI Vector Search Engine:** Normalized TF-IDF + `TruncatedSVD` semantic retrieval indexing 14 official NASA technical reports (`NASA/TM`, `NASA/CR`, `NASA-STD-6001B`) plus live user-uploaded PDF/TXT/MD papers.
+- **Multi-Turn Memory & Grounded Safety Directives:** Expands follow-up queries with prior session history and synthesizes 3-block safety directives (*Combustion Kinetics*, *NASA-STD-6001B Compliance*, *T+0s / T+15s / T+60s Crew Protocol*) with HTML-escaped citation cards.
 
-   ### 🔥 2. Dynamic Flame Morphology Visualizer
-   - **Morphological Geometry Transition:**
-   - **Earth ($1.0g$):** Elongated buoyant teardrop plume ($L/W \approx 3.2$, $T \approx 1850\text{ K}$) radiating bright yellow-orange soot.
-   - **Space Station ($0.0g$):** Perfectly symmetric pure blue spherical diffusion shell ($L/W \approx 1.0$, $T \approx 1380\text{ K}$) driven entirely by 3D molecular diffusion with zero soot.
-   - **Moon/Mars ($0.16g - 0.38g$):** **Hazardous expanding hemispherical dome** ($L/W \approx 0.65 - 0.85$, $T \approx 1600\text{ K}$) flaring laterally into a 240% broader contact area with surrounding spacecraft structures.
-   - **Telemetry & Contours:** Live calculation of Grashof ($Gr$), Richardson ($Ri$), Peclet ($Pe$) numbers, coupled with interactive SVG cross-sections and Plotly 2D thermal field maps.
+### 🔥 2. Dynamic Flame Morphology & 3D WebGL Spherical Rig
+- **Morphological Geometry Transition:**
+  - **Earth ($1.0g$):** Elongated buoyant teardrop plume ($L/W \approx 3.2$, $T \approx 1850\text{ K}$) radiating bright yellow-orange soot.
+  - **Space Station ($0.0g$):** Strictly isotropic pure blue spherical diffusion shell ($L/W \approx 1.0$, $T \approx 1380\text{ K}$) driven by 3D molecular diffusion with zero soot.
+  - **Moon/Mars ($0.16g–0.38g$):** **Hazardous expanding hemispherical dome** ($L/W \approx 0.65–0.85$, $T \approx 1600\text{ K}$) flaring laterally into a $+240\%$ broader surface contact area.
+- **3D WebGL & Thermal Contours:** Interactive Three.js 360° spherical flame (`OrbitControls` + 450 heat particles) paired with sub-millisecond Rust 2D isothermal maps and $Gr$, $Ri$, $Pe$, $Re$, $Da$ telemetry.
 
-   ### 🚨 3. Automated Emergency Suppression & Mitigation Matrix
-   - **3-Column Technical Recommendation Table** dynamically generated for all Critical & High-risk flight materials:
-   1. **Immediate Emergency Action (T+0s to T+3s):** Rapid HVAC fan isolation to starve forced convection and induce radiative quenching.
-   2. **Optimal Suppression Agent:** Fine Water Mist ($< 50\ \mu\text{m}$) propelled by $N_2$ or Total Flooding $CO_2$; **STRICTLY PROHIBITS single high-velocity water jets** to prevent hydrodynamic shattering of burning molten polymers.
-   3. **Secondary Life-Support Hazards & Toxicity:** Off-gassing analysis ($CO$, $HF$, siloxanes, aerosolized glass fibers) and mandatory astronaut positive-pressure breathing equipment (PBE/SCBA) duration.
-   - **Dual-Pane Export Hub:** Left pane provides machine-readable JSON & Markdown exports with author digital signature; right pane renders print-ready `.briefing-sheet` dossier.
+### 🚨 3. Automated Emergency Suppression, Custom Matrix & PDF Export
+- **3-Column Suppression Protocol Matrix:** Rapid HVAC fan isolation (`T+0s`), positive-pressure PBE donning (`T+15s`), and N₂-propelled Fine Water Mist (`< 50 μm`) or total flooding `CO2/N2` deployment (`T+60s`), strictly prohibiting high-velocity water streams that scatter molten polymers in `0g`.
+- **Multi-Format Export Hub:** Downloadable multi-page pure-Python `%PDF-1.4` Mission Safety Dossiers alongside JSON/Markdown briefing exports and `NASA-STD-6001B` Test 1 / Test 2 calibration matrices.
 
-   ---
+---
 
-   ## 🛠️ Installation & Quickstart
+## 🛠️ Installation & Quickstart
 
-   ### Prerequisites
-   - Python 3.10+ (Python 3.11 or 3.12 recommended)
-   - Git
+### Prerequisites
+- Python 3.10+ (Python 3.12 recommended)
+- Git
+- *(Optional for native Rust rebuilds)* Rust toolchain (`rustc` / `cargo`) & `maturin`
 
-   ### 1. Clone the Repository
-   ```bash
-   git clone https://github.com/baonam-fpt/flames-in-freefall.git
-   cd flames-in-freefall
-   ```
+### 1. Clone the Repository
+```bash
+git clone https://github.com/baonamv200/Bebo-ZeroG-X.git
+cd Bebo-ZeroG-X
+```
 
-   ### 2. Set Up Virtual Environment
+### 2. Set Up Virtual Environment
 
-   #### Option A: Using `uv` (Recommended - Ultra Fast)
-   ```bash
-   # Create virtual environment
-   uv venv .venv
+#### Option A: Using `uv` (Recommended - Ultra Fast)
+```bash
+uv venv .venv
+# On Windows: .venv\Scripts\activate | On macOS/Linux: source .venv/bin/activate
+uv pip install -r requirements.txt
+```
 
-   # Activate environment
-   # On Windows:
-   .venv\Scripts\activate
-   # On macOS / Linux:
-   source .venv/bin/activate
+#### Option B: Using standard Python `venv` and `pip`
+```bash
+python -m venv .venv
+# On Windows: .venv\Scripts\activate | On macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-   # Install dependencies
-   uv pip install -r requirements.txt
-   ```
+### 3. *(Optional)* Build Native Rust Extension & Run Automated Verification (406 Tests)
+```bash
+# Build native nasa_rust PyO3 extension (falls back cleanly to pure Python if skipped)
+maturin develop --release
 
-   #### Option B: Using standard Python `venv` and `pip`
-   ```bash
-   # Create virtual environment
-   python -m venv .venv
+# Run Rust integration suite (15 tests) + full 5-tier Python pytest suite (391 tests)
+cargo test
+pytest tests/ -v --tb=short
+```
 
-   # Activate environment
-   # On Windows:
-   .venv\Scripts\activate
-   # On macOS / Linux:
-   source .venv/bin/activate
+### 4. Launch the Application
+```bash
+streamlit run app.py
+```
 
-   # Install dependencies
-   pip install -r requirements.txt
-   ```
-
-   ### 3. Launch the Application
-   ```bash
-   streamlit run app.py
-   ```
-
-   The Mission Control dashboard will automatically open in your default browser at:
+The Mission Control dashboard will automatically open in your default browser at:
 ```text
 http://localhost:8501
 ```
@@ -175,6 +185,6 @@ http://localhost:8501
   - **Đỗ Duy Nam** — Microgravity Combustion Data & Physics Analytics
   - **Lương Đức Tùng** — Non-linear Flame Spread Kinetics & CFD Modeling
   - **Trịnh Đức Anh** — Aerospace UI/UX Design & Mission Documentation
-- **School / Institution:** THPT FPT (FPT High School)
-- **Design System:** Official NASA.gov Digital Design System with Modern Cyber-Glass Aesthetic (`Plus Jakarta Sans`, `Inter`, `JetBrains Mono`, NASA Blue `#0B3D91`, Cyan `#00F2FF`, NASA Red `#E03C31`)
-- **License:** Open Source under the MIT License.
+- **School / Institution:** Trường THPT FPT (FPT High School, Hanoi, Vietnam)
+- **Design System:** Aerospace Cyber-Glass Design System (`Plus Jakarta Sans`, `Inter`, `JetBrains Mono`, NASA Blue `#0B3D91`, Sky Cyan `#38BDF8`, NASA Red `#E03C31`, WCAG AA `#94A3B8` text contrast, and self-contained inline SVG Bebo Ignis-0G Mission Patch)
+- **License:** Dual-Licensed under Apache License 2.0 / MIT License — see [LICENSE](LICENSE) (Apache License 2.0 applies as the default license per NASA Space Apps Challenge 2026 SEPA Rule 7).

@@ -1,96 +1,75 @@
-<section id="problem" data-transition="fade" style="background:#040816;color:#f8fafc;font-family:'Plus Jakarta Sans',sans-serif;padding:80px 128px;display:flex;flex-direction:column;justify-content:space-between;gap:28px">
-  <div style="display:flex;flex-direction:column;gap:12px">
+<section id="problem" data-transition="fade" style="background:#040816;color:#f8fafc;font-family:'Plus Jakarta Sans',sans-serif;padding:72px 112px;display:flex;flex-direction:column;justify-content:space-between;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <p style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#00f2ff">// 01. VẤN ĐỀ THỰC TIỄN &amp; HIỂM HỌA KHÔNG GIAN</p>
-      <p style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#94a3b8">SLIDE [02/08]</p>
+      <p style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#00f2ff">// 01. PROBLEM STATEMENT &amp; COMBUSTION HAZARDS</p>
+      <p style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#38bdf8">SLIDE [02/07]</p>
     </div>
-    <h2 style="font-size:56px;font-weight:800;color:#ffffff;line-height:1.15">
-      Tại Sao Lửa Ngoài Không Gian Là Cơn Ác Mộng?
+    <h2 style="font-size:50px;font-weight:800;color:#f8fafc;line-height:1.15">
+      Why Spaceflight Fires Defy Terrestrial Safety Physics
     </h2>
   </div>
 
-  <div style="display:flex;gap:36px;align-items:stretch">
-    <!-- Earth 1g Column -->
-    <div style="flex:1;background:rgba(24,20,38,0.85);border:1px solid #78350f;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:18px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;flex:1">
+    <div style="background:rgba(10,28,64,0.88);border:1px solid #00f2ff;border-radius:18px;padding:28px;display:flex;flex-direction:column;justify-content:space-between;gap:12px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <h3 style="font-size:32px;font-weight:800;color:#f59e0b">Trái Đất (1.0g)</h3>
-        <p style="font-family:'JetBrains Mono',monospace;font-size:20px;background:#451a03;color:#fbbf24;padding:6px 14px;border-radius:8px">ĐỐI LƯU TỰ NHIÊN</p>
-      </div>
-      
-      <div style="display:flex;align-items:center;gap:24px">
-        <svg width="140" height="150" viewBox="0 0 140 150" fill="none" aria-label="1g Flame Diagram">
-          <path d="M70 10 C95 55 110 85 110 110 C110 132 92 145 70 145 C48 145 30 132 30 110 C30 85 45 55 70 10 Z" fill="#ea580c" opacity="0.85"/>
-          <path d="M70 35 C85 68 95 90 95 112 C95 128 84 138 70 138 C56 138 45 128 45 112 C45 90 55 68 70 35 Z" fill="#facc15"/>
-          <path d="M70 65 C78 85 84 100 84 115 C84 125 78 132 70 132 C62 132 56 125 56 115 C56 100 62 85 70 65 Z" fill="#ffffff"/>
-          <path d="M18 130 L18 60 M18 60 L12 72 M18 60 L24 72" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
-          <path d="M122 130 L122 60 M122 60 L116 72 M122 60 L128 72" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#00f2ff">01 // SPHERICAL FLAMES (0.0g)</p>
+        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-label="Spherical Flame Icon">
+          <circle cx="22" cy="22" r="18" stroke="#00f2ff" stroke-width="2" stroke-dasharray="4 4"/>
+          <circle cx="22" cy="22" r="10" fill="#0070f3"/>
+          <circle cx="22" cy="22" r="4" fill="#f8fafc"/>
         </svg>
-        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
-          <p style="font-size:26px;font-weight:700;color:#ffffff">Ngọn lửa giọt nước (L/W ≈ 3.2)</p>
-          <p style="font-size:22px;color:#cbd5e1;line-height:1.4">Lực đẩy nổi kéo khí nóng lên trên, muội than phát sáng vàng cam rực rỡ, nhiệt độ đỉnh ~1850 K.</p>
-        </div>
       </div>
-
-      <div style="background:rgba(0,0,0,0.3);padding:14px 20px;border-radius:12px;border-left:4px solid #f59e0b">
-        <p style="font-size:22px;color:#fed7aa"><strong>Nhận diện:</strong> Cảm biến quang học &amp; khói phát hiện đám cháy ngay tức khắc.</p>
-      </div>
+      <h3 style="font-size:30px;font-weight:800;color:#f8fafc">Isotropic Blue Spheres (L/W ≈ 1.0)</h3>
+      <p style="font-size:24px;color:#cbd5e1;line-height:1.38">
+        Zero buoyancy eliminates updraft (Earth 1.0g teardrop L/W ≈ 3.2, ~1850 K). 3D molecular diffusion forms dim-blue, soot-free spheres (~1380 K) that evade optical detectors.
+      </p>
     </div>
 
-    <!-- Space 0g Column -->
-    <div style="flex:1;background:rgba(10,28,64,0.85);border:1px solid #00f2ff;border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:18px">
+    <div style="background:rgba(24,20,42,0.88);border:1px solid #f59e0b;border-radius:18px;padding:28px;display:flex;flex-direction:column;justify-content:space-between;gap:12px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <h3 style="font-size:32px;font-weight:800;color:#00f2ff">Vi trọng lực (0.0g)</h3>
-        <p style="font-family:'JetBrains Mono',monospace;font-size:20px;background:#034e7b;color:#38bdf8;padding:6px 14px;border-radius:8px">KHUẾCH TÁN 3D</p>
-      </div>
-
-      <div style="display:flex;align-items:center;gap:24px">
-        <svg width="140" height="150" viewBox="0 0 140 150" fill="none" aria-label="0g Flame Diagram">
-          <circle cx="70" cy="75" r="58" stroke="#00f2ff" stroke-width="2" stroke-dasharray="4 4"/>
-          <circle cx="70" cy="75" r="46" fill="#0369a1" opacity="0.6"/>
-          <circle cx="70" cy="75" r="32" fill="#0284c7" opacity="0.85"/>
-          <circle cx="70" cy="75" r="16" fill="#00f2ff"/>
-          <path d="M70 15 L70 5 M70 5 L65 10 M70 5 L75 10" stroke="#38bdf8" stroke-width="2"/>
-          <path d="M70 135 L70 145 M70 145 L65 140 M70 145 L75 140" stroke="#38bdf8" stroke-width="2"/>
-          <path d="M10 75 L0 75 M0 75 L5 70 M0 75 L5 80" stroke="#38bdf8" stroke-width="2"/>
-          <path d="M130 75 L140 75 M140 75 L135 70 M140 75 L135 80" stroke="#38bdf8" stroke-width="2"/>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#f59e0b">02 // VENTILATION PARADOX (5–20 cm/s)</p>
+        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-label="Ventilation Airflow Icon">
+          <path d="M6 16 L36 16 M28 10 L36 16 L28 22" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M6 28 L36 28 M28 22 L36 28 L28 34" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
         </svg>
-        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
-          <p style="font-size:26px;font-weight:700;color:#ffffff">Khối cầu lửa xanh đối xứng (L/W ≈ 1.0)</p>
-          <p style="font-size:22px;color:#cbd5e1;line-height:1.4">Triệt tiêu hoàn toàn lực đẩy nổi; cháy chậm do khuếch tán phân tử, không muội than, nhiệt độ ~1380 K.</p>
-        </div>
       </div>
+      <h3 style="font-size:30px;font-weight:800;color:#f8fafc">Low-Flow Forced Airflow Acceleration</h3>
+      <p style="font-size:24px;color:#cbd5e1;line-height:1.38">
+        Cabin HVAC fans (5–20 cm/s) supply fresh O₂ without blowoff cooling, peaking spread in 5–12 cm/s and dropping MOC below terrestrial 1.0g limits.
+      </p>
+    </div>
 
-      <div style="background:rgba(0,0,0,0.3);padding:14px 20px;border-radius:12px;border-left:4px solid #00f2ff">
-        <p style="font-size:22px;color:#bae6fd"><strong>Cực kỳ nguy hiểm:</strong> Cháy âm ỉ bền bỉ, lửa xanh mờ gần như vô hình trong cabin.</p>
+    <div style="background:rgba(30,15,25,0.9);border:1px solid #e03c31;border-radius:18px;padding:28px;display:flex;flex-direction:column;justify-content:space-between;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#fca5a5">03 // PARTIAL GRAVITY (0.16g / 0.38g)</p>
+        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-label="Hemispherical Flaring Icon">
+          <path d="M6 34 C10 14 34 14 38 34 Z" fill="#e03c31" opacity="0.4" stroke="#fca5a5" stroke-width="2"/>
+        </svg>
       </div>
+      <h3 style="font-size:30px;font-weight:800;color:#f8fafc">Lunar &amp; Mars Hemispherical Flaring</h3>
+      <p style="font-size:24px;color:#cbd5e1;line-height:1.38">
+        Weak buoyancy draws O₂ inward while failing to lift plumes vertically, spreading flames laterally into wide domes (+240% surface contact area &amp; bulkhead heat flux).
+      </p>
+    </div>
+
+    <div style="background:rgba(14,24,50,0.9);border:1px solid #38bdf8;border-radius:18px;padding:28px;display:flex;flex-direction:column;justify-content:space-between;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#38bdf8">04 // COOL FLAMES (500–800 K)</p>
+        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-label="Cool Flame Alert Icon">
+          <circle cx="22" cy="22" r="18" stroke="#38bdf8" stroke-width="2"/>
+          <path d="M22 12 L22 25 M22 30 L22 32" stroke="#00f2ff" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h3 style="font-size:30px;font-weight:800;color:#f8fafc">Invisible NTC Oxidation &amp; CO</h3>
+      <p style="font-size:24px;color:#cbd5e1;line-height:1.38">
+        Second-stage Negative Temperature Coefficient (NTC) burning occurs at 500–800 K with zero visible soot glow while releasing lethal Carbon Monoxide (CO) &amp; aldehydes.
+      </p>
     </div>
   </div>
 
-  <!-- Bottom Twin Warnings -->
-  <div style="display:flex;gap:36px">
-    <div style="flex:1;background:rgba(30,15,25,0.9);border:1px solid #e03c31;border-radius:16px;padding:20px 28px;display:flex;align-items:center;gap:20px">
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-label="Cool Flames Icon">
-        <circle cx="22" cy="22" r="20" stroke="#e03c31" stroke-width="2"/>
-        <path d="M22 12 L22 26 M22 32 L22 34" stroke="#e03c31" stroke-width="3" stroke-linecap="round"/>
-      </svg>
-      <div style="display:flex;flex-direction:column;gap:4px">
-        <p style="font-size:24px;font-weight:800;color:#fca5a5">HIỂM HỌA 1: NGỌN LỬA LẠNH (COOL FLAMES)</p>
-        <p style="font-size:20px;color:#e2e8f0">Cháy ở nhiệt độ thấp 500–800 K không phát sáng quang học, âm thầm xả lượng lớn khí độc CO.</p>
-      </div>
-    </div>
-
-    <div style="flex:1;background:rgba(12,30,60,0.9);border:1px solid #38bdf8;border-radius:16px;padding:20px 28px;display:flex;align-items:center;gap:20px">
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-label="Ventilation Paradox Icon">
-        <circle cx="22" cy="22" r="20" stroke="#38bdf8" stroke-width="2"/>
-        <path d="M12 22 Q22 14 32 22 Q22 30 12 22" stroke="#38bdf8" stroke-width="2.5" fill="none"/>
-        <circle cx="22" cy="22" r="4" fill="#00f2ff"/>
-      </svg>
-      <div style="display:flex;flex-direction:column;gap:4px">
-        <p style="font-size:24px;font-weight:800;color:#7dd3fc">HIỂM HỌA 2: NGHỊCH LÝ THÔNG GIÓ (VENTILATION PARADOX)</p>
-        <p style="font-size:20px;color:#e2e8f0">Quạt gió cabin (5–20 cm/s) cấp oxy cưỡng bức liên tục, làm vật liệu bùng cháy ở mức oxy thấp hơn mặt đất.</p>
-      </div>
-    </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #1e3a6e">
+    <p style="font-family:'JetBrains Mono',monospace;font-size:24px;color:#94a3b8">TWIN U-CURVE EXTINCTION: RADIATIVE QUENCHING (&lt; 3 cm/s) VS CONVECTIVE BLOWOFF (&gt; 35 cm/s)</p>
   </div>
 
-  <aside>Trên Trái Đất, trọng lực sinh ra lực đẩy nổi giúp ngọn lửa bốc lên trên và tỏa nhiệt; nhưng trong vi trọng lực, lửa cuộn thành khối cầu xanh tĩnh lặng và cháy âm ỉ mà cảm biến quang học thông thường rất khó phát hiện. Nguy hiểm hơn, hệ thống thông gió bắt buộc trên tàu vũ trụ vô tình biến thành nguồn thổi oxy liên tục, kích hoạt đám cháy bùng phát dữ dội mà không có lối thoát hiểm.</aside>
+  <aside>Terrestrial fire intuition fails dangerously in space. In 0.0g, flames lose buoyancy and become dim-blue spheres. Mandatory cabin ventilation of 5 to 20 cm/s creates a flammability paradox, while 0.16g and 0.38g habitats suffer broad hemispherical flaring and invisible 500 to 800 K cool flames emit toxic carbon monoxide.</aside>
 </section>

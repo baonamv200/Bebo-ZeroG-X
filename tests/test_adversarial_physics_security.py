@@ -399,28 +399,81 @@ class RuntimeStabilityStressTest(unittest.TestCase):
 
     def test_live_streamlit_server_http_health(self):
         """Verify live Streamlit daemon responds to health check and home page with HTTP 200."""
+        import os
+        import subprocess
+        import sys
+        import time
+
         health_url = "http://localhost:8501/_stcore/health"
         home_url = "http://localhost:8501/"
+        spawned_proc = None
+
+        def _check_alive():
+            req = urllib.request.Request(health_url)
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                return resp.getcode() == 200 and resp.read().decode("utf-8").strip() == "ok"
 
         try:
-            req_health = urllib.request.Request(health_url)
-            with urllib.request.urlopen(req_health, timeout=5) as response:
-                status = response.getcode()
-                body = response.read().decode("utf-8").strip()
-                self.assertEqual(status, 200)
-                self.assertEqual(body, "ok")
-        except urllib.error.URLError as e:
-            self.fail(f"Streamlit server health check failed: {e}")
+            already_running = False
+            try:
+                already_running = _check_alive()
+            except Exception:
+                already_running = False
 
-        try:
-            req_home = urllib.request.Request(home_url)
-            with urllib.request.urlopen(req_home, timeout=5) as response:
-                status = response.getcode()
-                body = response.read().decode("utf-8")
-                self.assertEqual(status, 200)
-                self.assertIn("<!DOCTYPE html>", body)
-        except urllib.error.URLError as e:
-            self.fail(f"Streamlit server home page fetch failed: {e}")
+            if not already_running:
+                repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                spawned_proc = subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-m",
+                        "streamlit",
+                        "run",
+                        "app.py",
+                        "--server.port",
+                        "8501",
+                        "--server.headless",
+                        "true",
+                        "--browser.gatherUsageStats",
+                        "false",
+                    ],
+                    cwd=repo_root,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                deadline = time.time() + 20.0
+                while time.time() < deadline:
+                    try:
+                        if _check_alive():
+                            break
+                    except Exception:
+                        time.sleep(0.5)
+
+            try:
+                req_health = urllib.request.Request(health_url)
+                with urllib.request.urlopen(req_health, timeout=5) as response:
+                    status = response.getcode()
+                    body = response.read().decode("utf-8").strip()
+                    self.assertEqual(status, 200)
+                    self.assertEqual(body, "ok")
+            except urllib.error.URLError as e:
+                self.fail(f"Streamlit server health check failed: {e}")
+
+            try:
+                req_home = urllib.request.Request(home_url)
+                with urllib.request.urlopen(req_home, timeout=5) as response:
+                    status = response.getcode()
+                    body = response.read().decode("utf-8")
+                    self.assertEqual(status, 200)
+                    self.assertIn("<!DOCTYPE html>", body)
+            except urllib.error.URLError as e:
+                self.fail(f"Streamlit server home page fetch failed: {e}")
+        finally:
+            if spawned_proc is not None:
+                spawned_proc.terminate()
+                try:
+                    spawned_proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    spawned_proc.kill()
 
 
 if __name__ == "__main__":
