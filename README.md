@@ -31,7 +31,7 @@ An expert-grade interactive Mission Control safety platform built with **Streaml
 
 ## 🖥️ Live Demo & Competition Assets
 
-- 🌐 **Live Web Application:** [https://flames-in-freefall.streamlit.app](https://flames-in-freefall.streamlit.app)
+- 🌐 **Live Web Application:** [https://beboignis-0g.streamlit.app/](https://beboignis-0g.streamlit.app/)
 - 📊 **Presentation Deck:** [https://canva.link/cqtpja7dk2lbitk](https://canva.link/cqtpja7dk2lbitk)
 
 ---
