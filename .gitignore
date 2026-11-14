@@ -42,3 +42,14 @@ TEST_INFRA.md
 TEST_READY.md
 sentinel/
 .sentinel/
+
+# Presentations & Deck Generation Tools (keep local only)
+*.pptx
+build_*_deck.py
+generate_deck.py
+designs/
+index.html
+
+# Test Reports & Lockfiles
+reports/
+uv.lock

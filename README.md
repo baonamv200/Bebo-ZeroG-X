@@ -48,7 +48,6 @@ Bebo-ZeroG-X/
 ├── pdf_dossier.py                      # Pure-Python multi-page %PDF-1.4 Mission Safety Dossier writer (NaN/Inf guarded)
 ├── threejs_flame.py                    # Self-contained Three.js 360° WebGL spherical/buoyant flame & 450-particle emitter
 ├── LICENSE                             # Dual-Licensed under Apache License 2.0 (SEPA Rule 7 default) / MIT License
-├── Flames_in_Freefall_Presentation.pptx # Official English SEPA presentation deck
 ├── requirements.txt                    # Production Python package dependencies
 ├── pyproject.toml                      # Maturin build config & pytest discovery settings
 ├── Cargo.toml                          # Rust PyO3 0.24 extension crate manifest (nasa_rust)
