@@ -33,8 +33,6 @@ An expert-grade interactive Mission Control safety platform built with **Streaml
 
 - 🌐 **Live Web Application:** [Launch Flames in Freefall Dashboard](https://flames-in-freefall.streamlit.app) *(Official Deployment on Streamlit Community Cloud)*
 - 📊 **7-Slide English Presentation Deck:** [Flames_in_Freefall_Presentation.pptx](Flames_in_Freefall_Presentation.pptx) *(Max 7 slides including cover, 100% English per SEPA rules)*
-- 🎬 **30-Second Demo Video Script:** [VIDEO_PITCH_SCRIPT_2MIN.md](VIDEO_PITCH_SCRIPT_2MIN.md) *(Primary 30-second live-demo script with mandatory English subtitles & NASA PSI data citation, plus optional 2-minute pitch backup)*
-- 🛰️ **Official Submission & Checklists:** [NASA_SPACE_APPS_SUBMISSION.md](NASA_SPACE_APPS_SUBMISSION.md) • [NASA_SUBMISSION_CHECKLIST.md](NASA_SUBMISSION_CHECKLIST.md) • [HUONG_DAN_NOP_BAI_VA_THUYET_TRINH.md](HUONG_DAN_NOP_BAI_VA_THUYET_TRINH.md)
 
 ---
 
@@ -51,7 +49,6 @@ Bebo-ZeroG-X/
 ├── threejs_flame.py                    # Self-contained Three.js 360° WebGL spherical/buoyant flame & 450-particle emitter
 ├── LICENSE                             # Dual-Licensed under Apache License 2.0 (SEPA Rule 7 default) / MIT License
 ├── Flames_in_Freefall_Presentation.pptx # Official 7-slide English SEPA presentation deck (max 7 slides including cover)
-├── VIDEO_PITCH_SCRIPT_2MIN.md          # Primary 30-second live-demo script (EN subtitles & NASA PSI citation) + optional 2-min pitch backup
 ├── requirements.txt                    # Production Python package dependencies
 ├── pyproject.toml                      # Maturin build config & pytest discovery settings
 ├── Cargo.toml                          # Rust PyO3 0.24 extension crate manifest (nasa_rust)

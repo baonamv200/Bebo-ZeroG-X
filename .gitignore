@@ -31,3 +31,14 @@ target/
 .cargo/
 .agents/
 python*.dll
+
+# Local Submission Guides & Internal AI Handoff Docs (keep local only)
+HUONG_DAN_NOP_BAI_VA_THUYET_TRINH.md
+NASA_SUBMISSION_CHECKLIST.md
+NASA_SPACE_APPS_SUBMISSION.md
+VIDEO_PITCH_SCRIPT_2MIN.md
+PROJECT.md
+TEST_INFRA.md
+TEST_READY.md
+sentinel/
+.sentinel/
